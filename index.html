@@ -480,7 +480,7 @@ function validateRosterDoc(doc){
  for(const soldier of records){const seen=new Set([soldier.id]);let current=soldier;while(current.reportsTo){if(seen.has(current.reportsTo))throw Error('Circular reporting structure');seen.add(current.reportsTo);current=records.find(x=>x.id===current.reportsTo);if(!current)break}}
  return records;
 }
-function mergeRoster(records){
+function mergeRoster(records,sync=false){
  const existing=state.soldiers,used=new Set(existing.map(x=>x.id)),ids=new Map();
  records.forEach(r=>{
   const match=existing.find(x=>x.rank.toUpperCase()===r.rank.toUpperCase()&&(x.lastName||x.name.split(' ').slice(1).join(' ')).toUpperCase()===r.lastName.toUpperCase());
@@ -488,17 +488,25 @@ function mergeRoster(records){
  });
  records.forEach(r=>{
   const id=ids.get(r.id),old=existing.find(x=>x.id===id);
-  upsert('soldiers',{...r,id,reportsTo:r.reportsTo?ids.get(r.reportsTo)||null:null,firstName:r.firstName||old?.firstName||'',goals:old?.goals||[]});
+  upsert('soldiers',{...r,id,active:true,reportsTo:r.reportsTo?ids.get(r.reportsTo)||null:null,firstName:r.firstName||old?.firstName||'',goals:old?.goals||[]});
  });
- save();render();return records.length;
+ let archived=0;
+ if(sync){
+  const activeIds=new Set(ids.values());
+  for(const soldier of existing){
+   if(!activeIds.has(soldier.id)&&soldier.active!==false){soldier.active=false;archived++;}
+  }
+ }
+ save();render();return {imported:records.length,archived};
 }
 async function importRosterFile(file){
  if(!file)return;
  try{
   if(file.size>100000)throw Error('Roster import file too large');
-  const records=validateRosterDoc(JSON.parse(await file.text()));
-  if(!confirm('Import '+records.length+' Soldier profiles and reporting relationships? Existing linked tasks and appointments will be kept.'))return;
-  notify(mergeRoster(records)+' Soldier profiles imported into this browser');
+  const doc=JSON.parse(await file.text()),records=validateRosterDoc(doc),sync=doc.syncActiveRoster===true;
+  if(!confirm('Import '+records.length+' Soldier profiles and reporting relationships? '+(sync?'Other team members will be archived from active views, not deleted. ':'')+'Existing linked tasks and appointments will be preserved.'))return;
+  const result=mergeRoster(records,sync);
+  notify(result.imported+' Soldier profiles updated; '+result.archived+' former team members archived');
  }catch(err){notify(err.message||'Roster import failed')}
 }
 function upsert(k,o){let i=state[k].findIndex(x=>x.id===o.id);if(i<0)state[k].push(o);else state[k][i]=o}
