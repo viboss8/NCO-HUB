@@ -21,3 +21,17 @@ The interface is optimized for phone screens, including 44px minimum tap targets
 The preparation wizard offers 1 to 10 working days before the event, plus a custom deadline. Calculated dates skip Saturdays, Sundays and OPM observed federal holidays. It also skips the specifically published JBLM DONSAs currently listed in the demo (Nov 27, Dec 24 and Dec 31, 2026; Jan 15, Feb 12 and May 28, 2027). These local dates are not an authoritative schedule for the user's unit. Verify applicability and update as more dates become available. Sources: https://www.opm.gov/policy-data-oversight/pay-leave/federal-holidays/ and https://home.army.mil/lewis-mcchord/.
 
 Custom dates remain user-selected. Calculations do not create verified completion or attendance and do not make the app suitable for real personnel data.
+
+
+## Mobile tracker release (November 2026)
+- Starts with a blank roster instead of fictional preloaded records.
+- Add/edit Soldiers by rank and last name, optional first name and role, with linked appointments, training requirements, and follow-ups.
+- New calendar events default to generic "Appointment"; do not add medical reasons.
+- Home has quick actions for follow-ups, appointments, and event preparation.
+- A new browser storage key protects older prototype data from accidental overwriting.
+- Optional passphrase mode uses Web Crypto AES-256-GCM, PBKDF2-SHA256 (250,000 iterations) with random salt/IV per encrypted save.
+- Encryption setup migrates current local tracker data and removes the current unencrypted storage key upon successful encryption.
+- Download and restore the encrypted JSON backup. Protect the passphrase; there is no recovery service.
+- Test coverage included JavaScript parse checks and simulated UI flows for adding a Soldier, appointment, task, and locking/unlocking saved records. This is not a substitute for device/browser acceptance testing.
+
+**Important:** This is public static website code. Browser data is not automatically uploaded to the GitHub repository, synchronized, or backed up. Local encryption protects stored data at rest but does not secure a compromised browser or make the site an Army-authorized system. Do not store personnel schedules or nonpublic work records without confirmation of the approved environment.
