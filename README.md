@@ -15,3 +15,9 @@ The site stores demo edits in browser localStorage, meaning data **does not sync
 ## Mobile-first update
 
 The interface is optimized for phone screens, including 44px minimum tap targets, readable 16px form inputs, and a full-width mobile editing drawer. The guided setup was checked at 375px and 390px screen widths. Only fictional examples may be entered into this public demo.
+
+## Working-day deadlines and calendar
+
+The preparation wizard offers 1 to 10 working days before the event, plus a custom deadline. Calculated dates skip Saturdays, Sundays and OPM observed federal holidays. It also skips the specifically published JBLM DONSAs currently listed in the demo (Nov 27, Dec 24 and Dec 31, 2026; Jan 15, Feb 12 and May 28, 2027). These local dates are not an authoritative schedule for the user's unit. Verify applicability and update as more dates become available. Sources: https://www.opm.gov/policy-data-oversight/pay-leave/federal-holidays/ and https://home.army.mil/lewis-mcchord/.
+
+Custom dates remain user-selected. Calculations do not create verified completion or attendance and do not make the app suitable for real personnel data.
