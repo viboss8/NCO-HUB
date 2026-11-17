@@ -490,6 +490,22 @@ body:has(.soldiers-workspace) .main .content{padding-bottom:90px}
 .overview-arrow{font-size:16px}
 .overview-flow-link{padding-right:15%;height:clamp(35px,5dvh,55px)}
 }
+</style><style>
+.overview-flow{gap:3px}
+.overview-flow-leader{display:flex;justify-content:flex-end;width:100%;padding-right:4%}
+.overview-flow-leader .overview-soldier{width:30%;max-width:250px;flex:none}
+.overview-flow-branches{display:flex;justify-content:flex-end;gap:13%;width:100%;padding-right:5%;color:#728868;font-size:clamp(20px,4vw,31px);line-height:1}
+.overview-flow-bottom{width:67%;margin-left:auto;justify-content:flex-end}
+.overview-flow-bottom .overview-soldier{flex:1 1 0}
+.overview-flow-link{padding-right:16%;height:28px}
+@media(max-width:760px){
+.soldiers-workspace .hierarchy-section.overview-hierarchy{min-height:clamp(390px,55dvh,570px)}
+.overview-flow{min-height:clamp(365px,52dvh,550px)}
+.overview-flow-leader .overview-soldier{width:31%}
+.overview-flow-bottom{width:67%}
+.overview-flow-branches{gap:18%;padding-right:12%}
+.overview-flow-link{height:24px}
+}
 </style></head>
 <body>
 <div id="app"></div>
@@ -600,12 +616,14 @@ function orgChart(){
  // A six-person team fits in two rows, with senior leaders above the team.
  // A flexible three-column arrangement keeps every card visible without sideways scrolling.
  if(n===6&&levels.length>=4){
-  const top=all.slice(0,3),lower=all.slice(3);
+  const top=all.slice(0,3),leader=all[3],members=all.slice(4);
   return '<section class="org-section hierarchy-section overview-hierarchy" aria-label="Section reporting structure">'+
     '<div class="overview-flow">'+
     '<div class="overview-flow-top">'+top.map((p,i)=>(i?'<span class="overview-arrow" aria-hidden="true">→</span>':'')+tile(p)).join('')+'</div>'+
     '<div class="overview-flow-link" aria-hidden="true"><span>↓</span></div>'+
-    '<div class="overview-flow-bottom">'+lower.map(tile).join('')+'</div>'+
+    '<div class="overview-flow-leader">'+tile(leader)+'</div>'+
+    '<div class="overview-flow-branches" aria-hidden="true"><span>↙</span><span>↘</span></div>'+
+    '<div class="overview-flow-bottom">'+members.map(tile).join('')+'</div>'+
     '</div></section>';
  }
  return '<section class="org-section hierarchy-section overview-hierarchy" aria-label="Section reporting structure"><div class="overview-generic">'+levels.map((people,i)=>'<div class="overview-generic-tier">'+people.map(tile).join('')+'</div>'+(i<levels.length-1?'<span class="overview-generic-arrow" aria-hidden="true">↓</span>':'')).join('')+'</div></section>';
