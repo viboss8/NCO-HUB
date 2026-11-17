@@ -419,7 +419,7 @@ function home(){
 }
 function orgChart(){
  const active=state.soldiers.filter(x=>x.active!==false),ids=new Set(active.map(x=>x.id));
- const node=(p,depth,seen)=>{if(seen.has(p.id)||depth>12)return '';const next=new Set(seen);next.add(p.id),kids=active.filter(x=>x.reportsTo===p.id);
+ const node=(p,depth,seen)=>{if(seen.has(p.id)||depth>12)return '';const next=new Set(seen),kids=active.filter(x=>x.reportsTo===p.id);next.add(p.id);
  return '<div class="chain-node"><button class="chain-person" data-act="soldier-detail" data-id="'+e(p.id)+'"><span class="chain-rank">'+e(p.rank||'')+'</span><strong>'+e(p.name)+'</strong><small>'+e(p.role||'Section member')+'</small></button>'+(kids.length?'<div class="chain-line"></div><div class="chain-children">'+kids.map(x=>node(x,depth+1,next)).join('')+'</div>':'')+'</div>'};
  const roots=active.filter(x=>!x.reportsTo||!ids.has(x.reportsTo));
  return '<section class="org-section"><div class="org-top"><div><div class="eyebrow">SECTION STRUCTURE</div><h2>Chain of Responsibility</h2><p>Tap a Soldier to open their profile.</p></div></div><div class="chain-scroll"><div class="chain-chart">'+(roots.length?roots.map(x=>node(x,0,new Set())).join(''):'<p>No section loaded. Import your roster above.</p>')+'</div></div></section>'
