@@ -377,8 +377,8 @@ body:has(.calendar-workspace) .main .content{padding-left:9px;padding-right:9px}
 .calendar-workspace .calendar-controls,.calendar-workspace .calendar-legend{margin-left:7px;margin-right:7px}
 .calendar-workspace .calendar-surface{padding:12px 8px;border-radius:12px}
 .calendar-workspace .calendar-mobile-hint{display:block}
-.calendar-month-grid{min-width:735px;gap:7px}
-.calendar-cell{min-height:132px;padding:8px}
+.calendar-month-grid{min-width:0;width:calc(140% + 2px);gap:5px;grid-template-columns:repeat(7,minmax(0,1fr))}
+.calendar-cell{min-height:132px;padding:6px 4px}.calendar-weekday{padding-left:4px;padding-right:4px}.calendar-cell-top strong{font-size:15px}
 .calendar-week-card{padding:14px}
 .calendar-week-list{gap:10px}
 .calendar-bar{flex-wrap:wrap}
