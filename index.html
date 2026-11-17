@@ -319,7 +319,74 @@ body{background:var(--bg);color:var(--ink)}
 .drawer .notice{background:#f9f2dc;color:#635028;border:1px solid #d6c9a5;font-size:12px}
 .calendar-plan-label{background:#dfebd7;color:#29462e;border-radius:4px;padding:3px 2px;font-weight:700}
 @media(max-width:760px){.drawer{padding:20px 15px}.drawer-head{top:-20px}.drawer .accordion summary{min-height:48px}}
-</style></head>
+</style>
+<style>
+/* Calendar v3: full width, focus on deadline items rather than passive attendance */
+body:has(.calendar-workspace) .main .content{max-width:none;width:100%;padding-left:clamp(12px,2.8vw,38px);padding-right:clamp(12px,2.8vw,38px)}
+.calendar-workspace{width:100%;max-width:none;min-width:0;color:#24372b}
+.calendar-workspace .heading{margin-bottom:12px}
+.calendar-controls{display:flex;gap:10px;margin:10px 0 10px}
+.calendar-controls .btn{min-height:43px;min-width:104px}
+.calendar-legend{display:flex;gap:17px;flex-wrap:wrap;color:#566953;font-size:12px;padding:3px 0 16px}
+.calendar-legend span{display:inline-flex;align-items:center;gap:7px}
+.legend-dot{width:12px;height:12px;border-radius:3px;display:inline-block}
+.legend-due{background:#c68837}.legend-background{background:#829878}
+.calendar-surface{background:#fcf9f2;border:1px solid #d0d2c2;border-radius:15px;padding:clamp(12px,2vw,24px);box-shadow:0 3px 12px #273e2510;width:100%;min-width:0}
+.calendar-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:17px}
+.calendar-bar h2{font-size:clamp(17px,2vw,23px);margin:0;color:#263e2b}
+.calendar-nav{display:flex;gap:7px}.calendar-nav .btn{min-width:40px;min-height:40px;font-weight:700}
+.calendar-mobile-hint{display:none;font-size:12px;color:#52664c;margin:0 0 10px}
+.calendar-month-scroll{overflow-x:auto;overflow-y:visible;width:100%;scrollbar-width:thin;scrollbar-color:#92a88a #f2f2e7}
+.calendar-month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px;width:100%;min-width:0}
+.calendar-weekday{text-align:left;padding:0 9px 8px;font-weight:750;color:#536a56;font-size:12px}
+.calendar-blank{min-height:114px;background:#f7f5ed;border-radius:8px;opacity:.35}
+.calendar-cell{display:flex;flex-direction:column;min-width:0;min-height:124px;padding:9px 7px;text-align:left;background:white;border:1px solid #dce1d4;border-radius:9px;color:#253b2b;overflow:hidden;gap:6px}
+.calendar-cell.weekend{background:#f5f5ef}.calendar-cell.today{border:2px solid #446b4b;background:#f0f6ed}
+.calendar-cell:hover{border-color:#6e8d6c;background:#f2f6ed}
+.calendar-cell-top{display:flex;justify-content:space-between;align-items:center;gap:3px;min-width:0}
+.calendar-cell-top strong{display:inline-flex;justify-content:center;align-items:center;font-size:16px;min-height:24px;min-width:24px;font-weight:800}
+.due-count{font-size:10px;color:#8b541a;background:#f9e8c9;padding:2px 4px;border-radius:5px;white-space:nowrap}
+.calendar-holiday{font-size:10px;color:#866028}
+.calendar-day-activity{display:flex;flex-direction:column;gap:4px;min-width:0}
+.month-priority{background:#f6e6cb;color:#634014;border-left:3px solid #c68837;border-radius:3px;padding:5px 4px;font-size:11px;font-weight:700;line-height:1.3;overflow-wrap:anywhere}
+.month-priority.is-followup{background:#e2edf6;border-color:#467b9a;color:#264d64}
+.month-passive{display:block;border-left:3px solid #819976;background:#e8f0e4;border-radius:3px;padding:2px 4px;font-size:10px;color:#3e6444;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35;min-height:16px}
+.month-passive.edge-start,.month-passive.edge-end{font-weight:700;background:#d3e3cb;color:#244c2d}
+.calendar-week-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.calendar-week-card{background:#fff;border:1px solid #d5dfd0;border-radius:12px;padding:14px;min-width:0}
+.calendar-week-card.today{border:2px solid #527450;background:#f6faf4}
+.calendar-week-date{display:flex;align-items:center;gap:12px;margin-bottom:9px}
+.calendar-date-number{display:flex;align-items:center;justify-content:center;background:#e4ebdc;border-radius:11px;min-width:49px;height:49px;color:#28452e;font-size:25px;font-weight:800}
+.calendar-date-details{display:flex;flex-direction:column;gap:2px}
+.calendar-date-details strong{font-size:14px;color:#29432d}.calendar-date-details span{font-size:12px;color:#647361}
+.week-background{display:flex;flex-direction:column;gap:4px;margin:6px 0 10px}
+.week-passive{display:block;border:0;border-left:4px solid #839e79;background:#edf4e9;color:#416b45;text-align:left;border-radius:4px;padding:4px 8px;font-size:11px;line-height:1.4;width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.week-passive.edge-start,.week-passive.edge-end{background:#dae9d4;font-weight:700}
+.week-priorities{display:flex;flex-direction:column;gap:7px;margin-top:10px}
+.week-action{border:1px solid #e6ceaa;border-left:4px solid #c48635;background:#fff3e1;border-radius:9px;padding:10px 12px;min-height:61px;display:flex;flex-direction:column;gap:4px;text-align:left;color:#3d3528}
+.week-action.action-followup{background:#eaf2f8;border-color:#b6d0de;border-left-color:#4b7e98}
+.week-action-label{font-size:10px;font-weight:800;letter-spacing:.05em;color:#80541b}
+.week-action.action-followup .week-action-label{color:#31647f}
+.week-action strong{font-size:13px}.week-action small{font-size:11px;color:#6a685b}
+.week-no-due{font-size:12px;color:#7b8876;margin:11px 0 2px}
+.calendar-disclaimer{font-size:11px;color:#687868;line-height:1.5;margin:15px 2px}
+@media(max-width:950px){.calendar-week-list{grid-template-columns:1fr}.calendar-month-grid{min-width:710px}}
+@media(max-width:760px){
+body:has(.calendar-workspace) .main .content{padding-left:9px;padding-right:9px}
+.calendar-workspace .heading{padding:0 7px}
+.calendar-workspace .calendar-controls,.calendar-workspace .calendar-legend{margin-left:7px;margin-right:7px}
+.calendar-workspace .calendar-surface{padding:12px 8px;border-radius:12px}
+.calendar-workspace .calendar-mobile-hint{display:block}
+.calendar-month-grid{min-width:735px;gap:7px}
+.calendar-cell{min-height:132px;padding:8px}
+.calendar-week-card{padding:14px}
+.calendar-week-list{gap:10px}
+.calendar-bar{flex-wrap:wrap}
+.calendar-bar h2{font-size:21px}
+.calendar-nav .btn{min-height:40px}
+}
+</style>
+</head>
 <body>
 <div id="app"></div>
 <script>
@@ -431,39 +498,54 @@ function missions(){return heading('PRODUCTION ACCOUNTABILITY','Missions & Produ
 function mytasks(){let arr=state.tasks.filter(t=>(tab==='all'||(tab==='open'&&!t.done)||(tab==='done'&&t.done))&&`${t.title} ${who(t.soldierId)}`.toLowerCase().includes(filter.toLowerCase())).sort((a,b)=>Number(a.done)-Number(b.done)||a.due.localeCompare(b.due));return heading('LEADER FOLLOW-THROUGH','My Follow-Ups','Your personal task list. Suggestions never create tasks without your approval.',`<button class="btn primary" data-act="new-task">${ico('plus')} Add Follow-Up</button>`)+`${panel('Event preparation • paperwork & prerequisites',prepCards(prepItems())||'<div class="empty">No open preparation requirements.</div>')}<div class="tabs"><button class="tab ${tab==='all'?'active':''}" data-act="tab" data-id="all">All</button><button class="tab ${tab==='open'?'active':''}" data-act="tab" data-id="open">Open</button><button class="tab ${tab==='done'?'active':''}" data-act="tab" data-id="done">Completed</button></div><div class="panel"><div class="panel-body">${arr.map(t=>`<div class="list-row"><input type="checkbox" class="check-task" data-act="toggle-task" data-id="${t.id}" ${t.done?'checked':''} aria-label="Toggle task"><div class="row-main"><strong class="${t.done?'task-complete':''}">${e(t.title)}</strong><span>${t.soldierId?who(t.soldierId)+' • ':''}Due ${fmt(t.due)} ${!t.done&&t.due<today?' • OVERDUE':''}</span></div>${chip(t.done?'Completed':t.due<today?'Overdue':'Open')}<button class="text-button" data-act="task-detail" data-id="${t.id}">Edit ›</button></div>`).join('')||'<div class="empty">No tasks in this view.</div>'}</div></div><h2 class="section-head">Optional suggestions</h2><div class="panel"><div class="panel-body"><div class="list-row"><div class="circle">${ico('clock')}</div><div class="row-main"><strong>Verify attendance after upcoming training</strong><span>Suggested only, no task has been created</span></div><button class="btn tiny" data-act="suggest-task">Add task</button></div></div></div>`}
 function spansDate(x,d){return Boolean(x?.date&&x.date<=d&&(x.endDate||x.date)>=d)}
 function scheduleLabel(x,d){return d===x.date?'Starts':d===(x.endDate||x.date)?'Ends':'In progress'}
+
+function calendarDayData(d){
+ const passive=[
+  ...state.events.filter(x=>spansDate(x,d)).map(x=>({id:x.id,kind:'event',name:((x.soldierIds||[]).length?x.soldierIds.map(who).join(', ')+': ':'')+x.title,start:x.date,end:x.endDate||x.date})),
+  ...state.training.filter(x=>spansDate(x,d)).map(x=>({id:x.id,kind:'training',name:x.title,start:x.date,end:x.endDate||x.date})),
+  ...state.prepPlans.filter(x=>spansDate(x,d)).map(x=>({id:x.id,kind:'prep',name:(x.soldierId?who(x.soldierId)+': ':'')+x.title,start:x.date,end:x.endDate||x.date}))
+ ];
+ const due=[
+  ...state.tasks.filter(x=>!x.done&&x.due===d).map(x=>({id:x.id,kind:'task',name:x.title,sub:x.soldierId?'Follow up • '+who(x.soldierId):'My follow-up',group:'followup'})),
+  ...state.requirements.filter(x=>x.completion!=='Verified'&&x.due===d).map(x=>({id:x.id,kind:'requirement',name:x.course,sub:'Training deadline • '+who(x.soldierId),group:'deadline'})),
+  ...state.missions.filter(x=>x.stage!==4&&x.due===d).map(x=>({id:x.id,kind:'mission',name:x.title,sub:'Mission deadline'+(x.owner?' • '+who(x.owner):''),group:'deadline'})),
+  ...state.prepPlans.flatMap(p=>(p.items||[]).filter(x=>!x.done&&x.due===d).map(x=>({id:p.id,kind:'prep',name:x.title,sub:'Preparation for '+p.title+' • '+x.owner,group:'deadline'})))
+ ];
+ return {passive,due};
+}
+function passiveLabel(x,d){
+ if(d===x.start&&d===x.end)return x.name;
+ if(d===x.start)return 'Starts: '+x.name;
+ if(d===x.end)return 'Ends: '+x.name;
+ return x.name;
+}
 function calendar(){
- const base=dateAt(today),activeMonth=new Date(base),firstOfWeek=new Date(base);
- activeMonth.setDate(1);activeMonth.setMonth(activeMonth.getMonth()+calendarOffset);
- firstOfWeek.setDate(firstOfWeek.getDate()-((firstOfWeek.getDay()+6)%7)+weekOffset*7);
- const y=activeMonth.getFullYear(),m=activeMonth.getMonth(),dayCount=new Date(y,m+1,0,12).getDate();
+ const base=dateAt(today),monthBase=dateAt(today),weekBase=dateAt(today);
+ monthBase.setDate(1);monthBase.setMonth(monthBase.getMonth()+calendarOffset);
+ weekBase.setDate(weekBase.getDate()-((weekBase.getDay()+6)%7)+weekOffset*7);
+ const y=monthBase.getFullYear(),m=monthBase.getMonth(),last=new Date(y,m+1,0,12).getDate();
  const tabs='<div class="calendar-controls" role="group" aria-label="Calendar view"><button class="btn '+(calendarView==='week'?'primary':'')+'" data-act="calendar-week">Week</button><button class="btn '+(calendarView==='month'?'primary':'')+'" data-act="calendar-month">Month</button></div>';
- const monthDays=Array.from({length:dayCount},(_,i)=>{
-  const d=dateKey(new Date(y,m,i+1,12)),holiday=dayOffLabel(d),weekend=!isWorkingDay(d);
-  const events=state.events.filter(x=>spansDate(x,d)).length,train=state.training.filter(x=>spansDate(x,d)).length;
-  const prep=state.prepPlans.flatMap(p=>p.items||[]).filter(x=>!x.done&&x.due===d).length;
-  const tasks=state.tasks.filter(x=>!x.done&&x.due===d).length;
-  const requirements=state.requirements.filter(x=>x.completion!=='Verified'&&x.due===d).length;
-  const plans=state.prepPlans.filter(p=>spansDate(p,d));
-  const items=[...state.events.filter(x=>spansDate(x,d)).map(x=>({name:((x.soldierIds||[]).length?x.soldierIds.map(who).join(', ')+': ':'')+x.title,flag:scheduleLabel(x,d)})),...state.training.filter(x=>spansDate(x,d)).map(x=>({name:x.title,flag:scheduleLabel(x,d)})),...plans.map(p=>({name:(p.soldierId?who(p.soldierId)+': ':'')+p.title,flag:scheduleLabel(p,d)}))];
-  return '<button class="month-day '+(d===today?'is-today ':'')+(holiday?'is-holiday ':'')+(weekend?'is-weekend':'')+'" data-act="calendar-day" data-id="'+d+'"><strong>'+(i+1)+'</strong>'+(holiday?'<small class="holiday-label">'+e(holiday)+'</small>':'')+(items.length?'<small class="calendar-plan-label">'+e(items.slice(0,2).map(x=>x.name+' • '+x.flag).join(' / '))+(items.length>2?' +'+(items.length-2):'')+'</small>':'')+(prep+tasks+requirements?'<small>'+ (prep+tasks+requirements)+' deadline(s)</small>':'')+'</button>'
+ const gridStart=(new Date(y,m,1,12).getDay()+6)%7;
+ const calendarCells=Array.from({length:gridStart},()=>'<div class="calendar-blank" aria-hidden="true"></div>').join('')+
+ Array.from({length:last},(_,i)=>{
+  const d=dateKey(new Date(y,m,i+1,12)),data=calendarDayData(d),holiday=dayOffLabel(d),weekend=[0,6].includes(dateAt(d).getDay());
+  const important=data.due.map(x=>'<span class="month-priority '+(x.group==='followup'?'is-followup':'')+'">'+e(x.name)+'</span>').join('');
+  const passive=data.passive.map(x=>'<span class="month-passive '+(d===x.start?'edge-start ':d===x.end?'edge-end ':'')+'" title="'+e(x.name)+'">'+e(passiveLabel(x,d))+'</span>').join('');
+  return '<button class="calendar-cell '+(d===today?'today ':'')+(weekend?'weekend ':'')+'" data-act="calendar-day" data-id="'+d+'" aria-label="'+e(fmt(d,{weekday:'long',month:'long',day:'numeric'}))+'"><div class="calendar-cell-top"><strong>'+String(i+1)+'</strong>'+(data.due.length?'<span class="due-count">'+data.due.length+' due</span>':'')+'</div>'+(holiday?'<span class="calendar-holiday">'+e(holiday)+'</span>':'')+'<div class="calendar-day-activity">'+important+passive+'</div></button>'
  }).join('');
- const monthTitle=activeMonth.toLocaleDateString('en-US',{month:'long',year:'numeric'});
- const monthLabel='<div class="panel"><div class="panel-head"><h2>'+monthTitle+'</h2><div class="action-row"><button class="btn tiny" data-act="month-prev" aria-label="Previous month">‹</button><button class="btn tiny" data-act="month-now">Today</button><button class="btn tiny" data-act="month-next" aria-label="Next month">›</button></div></div><div class="panel-body"><div class="month-grid">'+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(x=>'<div class="weekday">'+x+'</div>').join('')+Array((new Date(y,m,1,12).getDay()+6)%7).fill('<div class="month-day empty-day"></div>').join('')+monthDays+'</div></div></div>';
- const weekDates=Array.from({length:7},(_,i)=>{let d=new Date(firstOfWeek);d.setDate(d.getDate()+i);return dateKey(d)});
+ const monthHeader=monthBase.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+ const monthHTML='<div class="calendar-surface"><div class="calendar-bar"><h2>'+monthHeader+'</h2><div class="calendar-nav"><button class="btn tiny" data-act="month-prev" aria-label="Previous month">‹</button><button class="btn tiny" data-act="month-now">Today</button><button class="btn tiny" data-act="month-next" aria-label="Next month">›</button></div></div><p class="calendar-mobile-hint">Swipe sideways to view all seven days. Tap a date for its week.</p><div class="calendar-month-scroll" tabindex="0" aria-label="Scrollable month calendar"><div class="calendar-month-grid">'+['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(x=>'<div class="calendar-weekday">'+x+'</div>').join('')+calendarCells+'</div></div></div>';
+ const weekDates=Array.from({length:7},(_,i)=>{const d=new Date(weekBase);d.setDate(d.getDate()+i);return dateKey(d)});
  const weekly=weekDates.map(d=>{
-  const holiday=dayOffLabel(d),off=!isWorkingDay(d);
-  let items=[
-   ...state.events.filter(x=>spansDate(x,d)).map(x=>({type:'event',id:x.id,sort:x.time||'12:00',label:(x.time||'')+' '+x.title,sub:scheduleLabel(x,d)+' • '+(x.soldierIds||[]).map(who).join(', ')})),
-   ...state.training.filter(x=>spansDate(x,d)).map(x=>({type:'training',id:x.id,sort:'09:00',label:x.title,sub:'Training • '+scheduleLabel(x,d)})),
-   ...state.tasks.filter(x=>!x.done&&x.due===d).map(x=>({type:'task',id:x.id,sort:'16:00',label:x.title,sub:'Follow-up • '+who(x.soldierId)})),
-   ...state.requirements.filter(x=>x.completion!=='Verified'&&x.due===d).map(x=>({type:'requirement',id:x.id,sort:'16:00',label:x.course,sub:'Requirement deadline • '+who(x.soldierId)})),
-   ...state.prepPlans.filter(p=>spansDate(p,d)).map(p=>({type:'prep',id:p.id,sort:'09:00',label:p.title,sub:(p.soldierId?who(p.soldierId)+' • ':'')+scheduleLabel(p,d)+' • '+fmt(p.date)+(p.endDate&&p.endDate!==p.date?' to '+fmt(p.endDate):'')})),...state.prepPlans.flatMap(p=>(p.items||[]).filter(x=>!x.done&&x.due===d).map(x=>({type:'prep',id:p.id,sort:'16:00',label:x.title,sub:'Preparation • '+p.title})))
-  ].sort((a,b)=>a.sort.localeCompare(b.sort));
-  return '<section class="week-day '+(d===today?'is-today':'')+'"><div class="week-day-head"><strong>'+fmt(d,{weekday:'short',month:'short',day:'numeric'})+'</strong><span>'+(holiday?e(holiday):off?'Weekend':'Working day')+'</span></div>'+ (items.length?items.map(x=>'<button class="week-entry" data-act="'+x.type+'-detail" data-id="'+e(x.id)+'"><span>'+e(x.label)+'</span><small>'+e(x.sub)+'</small></button>').join(''):'<p class="week-empty">No commitments or deadlines</p>')+'</section>'
+  const day=calendarDayData(d),holiday=dayOffLabel(d),off=[0,6].includes(dateAt(d).getDay());
+  const passive=day.passive.map(x=>'<button class="week-passive '+(d===x.start?'edge-start':d===x.end?'edge-end':'')+'" data-act="'+x.kind+'-detail" data-id="'+e(x.id)+'" title="'+e(x.name)+'">'+e(passiveLabel(x,d))+'</button>').join('');
+  const actions=day.due.map(x=>'<button class="week-action '+(x.group==='followup'?'action-followup':'')+'" data-act="'+x.kind+'-detail" data-id="'+e(x.id)+'"><span class="week-action-label">'+e(x.group==='followup'?'FOLLOW-UP':'DUE / PREPARATION')+'</span><strong>'+e(x.name)+'</strong><small>'+e(x.sub)+'</small></button>').join('');
+  return '<section class="calendar-week-card '+(d===today?'today':'')+'"><div class="calendar-week-date"><div class="calendar-date-number">'+Number(d.slice(8))+'</div><div class="calendar-date-details"><strong>'+fmt(d,{weekday:'long'})+'</strong><span>'+fmt(d,{month:'long',day:'numeric'})+(holiday?' • '+e(holiday):off?' • Weekend':'')+'</span></div></div>'+(passive?'<div class="week-background">'+passive+'</div>':'')+(actions?'<div class="week-priorities">'+actions+'</div>':'<p class="week-no-due">No follow-ups or prerequisites due</p>')+'</section>'
  }).join('');
- const weekLabel='<div class="panel"><div class="panel-head"><h2>'+fmt(weekDates[0],{month:'short',day:'numeric'})+' to '+fmt(weekDates[6],{month:'short',day:'numeric',year:'numeric'})+'</h2><div class="action-row"><button class="btn tiny" data-act="week-prev" aria-label="Previous week">‹</button><button class="btn tiny" data-act="week-now">Today</button><button class="btn tiny" data-act="week-next" aria-label="Next week">›</button></div></div><div class="panel-body"><div class="week-list">'+weekly+'</div></div></div>';
- return heading('YOUR SCHEDULE','Calendar','Appointments, training, follow-ups, deadlines and holidays in one place.','<button class="btn primary" data-act="new-event">'+ico('plus')+' Add Event</button>')+tabs+(calendarView==='week'?weekLabel:monthLabel)+
- '<div class="notice">Multi-day training appears on each date in its saved range. Older entries without an end date remain single-day until edited.</div><div class="notice">Federal holidays follow observed OPM dates. Published JBLM days off may not apply to your section, confirm locally.</div>';
+ const weekHTML='<div class="calendar-surface"><div class="calendar-bar"><h2>'+fmt(weekDates[0],{month:'short',day:'numeric'})+' to '+fmt(weekDates[6],{month:'short',day:'numeric',year:'numeric'})+'</h2><div class="calendar-nav"><button class="btn tiny" data-act="week-prev" aria-label="Previous week">‹</button><button class="btn tiny" data-act="week-now">Today</button><button class="btn tiny" data-act="week-next" aria-label="Next week">›</button></div></div><div class="calendar-week-list">'+weekly+'</div></div>';
+ return '<div class="calendar-workspace">'+heading('YOUR SCHEDULE','Calendar','Schools and TDYs stay in the background. Follow-ups and preparation deadlines take priority.','<button class="btn primary" data-act="quick-add">+ Add Item</button>')+tabs+
+ '<div class="calendar-legend"><span><i class="legend-dot legend-due"></i>Tasks / preparation due</span><span><i class="legend-dot legend-background"></i>School / TDY / class</span></div>'+
+ (calendarView==='week'?weekHTML:monthHTML)+'<p class="calendar-disclaimer">Older events without an end date remain one-day entries until edited. Federal holidays and published JBLM days off are reference information; confirm applicability with your unit.</p></div>';
 }
 function layout(){const s=nav.map(([id,name])=>`<button class="nav-item ${view===id?'active':''}" data-act="goto" data-id="${id}">${ico(id==='soldiers'?'users':id==='met'?'target':id)} ${name}</button>`).join('');return `<div class="mobile-header"><strong>◈ NCO Mission Control</strong><span class="demo-label">PERSONAL TRACKER</span></div><div class="shell"><aside class="sidebar"><div class="brand"><div class="brand-logo">◈</div><div><strong>NCO Mission Control</strong><small>LEADERSHIP HUB</small></div></div><div class="nav-label">WORKSPACE</div>${s}<div class="sidebar-bottom"><span class="demo-label">BROWSER-LOCAL DATA</span><p>Entries are stored in this browser only, not synced. Do not enter actual personnel schedules or sensitive duty information without approval.</p><button class="text-button" style="color:#E0D9BB" data-act="${vaultKey?'vault-backup':'vault-setup'}">${vaultKey?'Encrypted backup':'Protect with passphrase'}</button><button class="text-button" style="color:#E0D9BB" data-act="reset">Clear local tracker</button></div></aside><main class="main"><header class="topbar"><div class="crumb">Workspace &nbsp;/&nbsp; <strong>${e(nav.find(n=>n[0]===view)?.[1]||'Calendar')}</strong></div><div class="top-right"><span class="small-meta">${fmt(today,{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</span><div class="avatar">NCO</div></div></header><div class="content">${({home,soldiers,training,met,missions,tasks:mytasks,calendar}[view]||home)()}${securityPanel()}<div class="footer">NCO Mission Control • Mobile tracker preview • Local data only • No cloud sync • Use authorized duty information only.</div></div></main></div><nav class="mobile-nav" aria-label="Main navigation">${nav.map(([id,name])=>`<button class="${view===id?'active':''}" data-act="goto" data-id="${id}">${ico(id==='soldiers'?'users':id==='met'?'target':id)}<span>${name==='MET Readiness'?'MET':name==='My Tasks'?'Tasks':name}</span></button>`).join('')}</nav>${drawer?drawerHTML():''}`}
 function render(){document.getElementById('app').innerHTML=vaultSetupOpen?setupVaultScreen():localStorage.getItem(vaultStorageKey)&&!vaultKey?lockedScreen():layout();}
