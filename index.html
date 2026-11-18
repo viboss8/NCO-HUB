@@ -1112,7 +1112,7 @@ function eightApprove(p){
  const existing=state.prepPlans.find(x=>x.id===prepId);
  upsert('prepPlans',{...(existing||{}),id:prepId,trainingId:eventId,eightPlanId:p.id,demo:p.demo===true,title:p.title+' • Preparation',type:'Training',date:p.date,endDate:p.date,soldierId:'',items:tasks.map(x=>{
   const previousItem=existing?.items?.find(y=>y.id===x.id);
-  return {id:x.id,title:x.title,due:x.due,owner:x.owner,done:previousItem?.done||false,step:x.step,demo:p.demo===true,eightPlanId:p.id};
+  return {id:x.id,title:x.title,due:x.due,owner:x.owner,done:previousItem?.done??x.done??false,step:x.step,demo:p.demo===true,eightPlanId:p.id};
  })});
  p.trainingId=eventId;p.prepPlanId=prepId;p.status='Active';save();return true;
 }
