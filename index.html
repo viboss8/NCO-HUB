@@ -1054,8 +1054,34 @@ function eightSuggestedDeadline(eventDate,leadDays){
  const position=Math.round((maxLead-Math.min(maxLead,Math.max(1,leadDays)))/(maxLead-1)*(days.length-1));
  return days[Math.max(0,Math.min(days.length-1,position))];
 }
+function eightLeadDays(t){
+ if(Number(t.leadDays)>0)return Number(t.leadDays);
+ const id=t.id||'';
+ if(id==='eight-facility-request')return 8;
+ if(id==='eight-instructor-request')return 7;
+ if(id==='eight-draw')return 3;
+ if(id==='eight-brief')return 2;
+ if(id==='eight-rehearse')return 1;
+ if(t.custom)return 2;
+ const question=eightStepQuestions.find(q=>'eight-'+q.id===id);
+ return question?.before||0;
+}
+function eightNormalizeDraftDeadlines(p){
+ // Existing unapproved drafts may retain deadlines from the earlier planner,
+ // including dates in the past. Never alter approved calendar records.
+ if(p.status==='Active'||!p.date)return;
+ for(const t of p.tasks||[]){
+  const lead=eightLeadDays(t);
+  if(!lead)continue;
+  if(!t.leadDays)t.leadDays=lead;
+  if(!t.due||t.due<today){
+   t.due=eightSuggestedDeadline(p.date,lead);
+   t.dateAdjusted=true;
+  }
+ }
+}
 function eightDeadlineNote(t,p){
- const lead=t.leadDays;
+ const lead=eightLeadDays(t);
  if(!lead)return '';
  const ideal=workingDaysBefore(p.date||addDay(14),lead);
  const shortened=ideal<today;
@@ -1132,13 +1158,24 @@ function eightSaveStep(form,p,step){
   for(const q of eightStepQuestions)p.answers[q.id]=f['q_'+q.id]||eightAnswerDefault(q.id);
   p.answers.draw=p.answers.safety==='yes'?(f.q_draw||'no'):'not-applicable';
   for(const kind of ['facility','instructor'])for(const suffix of ['Request','Confirmed'])p.answers[kind+suffix]=p.answers[kind]==='yes'?(f['q_'+kind+suffix]||'no'):'not-applicable';
-  p.tasks=[...eightCreateTasks(p).map(x=>({...x,...(old[x.id]||{}),title:x.title,done:old[x.id]?.done===true||x.done===true,owner:old[x.id]?.owner||x.owner})),...(p.tasks||[]).filter(x=>x.custom)];
+  p.tasks=[...eightCreateTasks(p).map(x=>{
+   const previous=old[x.id];
+   // Preserve manually adjusted future dates, but never reuse stale past suggestions.
+   const keepDate=previous?.due&&previous.due>=today&&previous.due<=p.date&&previous.dateAdjusted!==true;
+   return {...x,...(previous||{}),title:x.title,
+     due:keepDate?previous.due:x.due,leadDays:x.leadDays,
+     dateAdjusted:!keepDate,done:previous?.done===true||x.done===true,
+     owner:previous?.owner||x.owner};
+  }),...(p.tasks||[]).filter(x=>x.custom)];
+  eightNormalizeDraftDeadlines(p);
  }else if(step===3){
   for(const t of p.tasks||[]){
    if(t.custom)t.title=(f['title_'+t.id]||t.title).trim().slice(0,140);
    t.included=f['include_'+t.id]==='yes';
    t.owner=(f['owner_'+t.id]||p.lead||'Training lead').trim().slice(0,90);
-   t.due=f['due_'+t.id]||t.due;
+   const updatedDue=f['due_'+t.id]||t.due;
+   t.dateAdjusted=updatedDue!==t.due?false:!!t.dateAdjusted;
+   t.due=updatedDue;
    if(t.included&&(!t.due||t.due>p.date)){notify('Choose preparation deadlines on or before the training date.');return false}
   }
  }
@@ -1166,7 +1203,9 @@ function eightPlanSummary(p){
  return '<div class="eight-summary"><strong>'+(p.demo?'<span class="eight-demo-chip">DEMO</span> ':'')+e(p.title||'Untitled draft')+'</strong><span>'+fmt(p.date||today)+' • '+e(p.status)+' • '+done+'/'+tasks.length+' prep tasks • '+stepDone+'/8 steps closed</span><button class="text-button" data-act="eight-open" data-id="'+e(p.id)+'">Open ›</button></div>';
 }
 function eightPlanDrawer(p){
- const step=eightStepScreen,taskList=eightPlanTasks(p);
+ const step=eightStepScreen;
+ if(step===3) eightNormalizeDraftDeadlines(p);
+ const taskList=eightPlanTasks(p);
  const buttons='<div class="action-row eight-actions"><button class="btn" type="button" data-act="eight-back" '+(step===1?'disabled':'')+'>Back</button><button class="btn" type="submit" name="eightAction" value="draft">Save Draft</button><button class="btn primary" type="submit" name="eightAction" value="'+(step===4?'approve':'next')+'">'+(step===4?'Approve Tracker Plan':'Next ›')+'</button></div>';
  const details=step===1?
  input('What training or class?','title',p.title)+
@@ -1205,7 +1244,7 @@ function eightPlanDrawer(p){
   return control+followup+draw;
  }).join(''):
  step===3?'<p class="small-meta">Review suggested preparation tasks. Uncheck anything unnecessary, edit owners and deadlines. These are not official Army lead times.</p>'+
- (p.tasks||[]).map(t=>'<div class="eight-task-editor">'+(t.custom?input('Custom requirement','title_'+t.id,t.title):'')+'<label class="training-checkbox"><input type="checkbox" name="include_'+t.id+'" value="yes" '+(t.included!==false?'checked':'')+'> <strong>'+e(t.title)+'</strong></label><div class="form-two">'+input('Responsible person','owner_'+t.id,t.owner,'text',false)+input('Deadline'+(t.leadDays?' (recommended '+t.leadDays+' working day'+(t.leadDays===1?'':'s')+' before)':''),'due_'+t.id,t.due,'date',false)+eightDeadlineNote(t,p)+'</div><span class="small-meta">Army step '+t.step+'</span></div>').join('')+'<button class="btn tiny" type="button" data-act="eight-add-task" data-id="'+e(p.id)+'">+ Add custom requirement</button>':
+ (p.tasks||[]).map(t=>'<div class="eight-task-editor">'+(t.custom?input('Custom requirement','title_'+t.id,t.title):'')+'<label class="training-checkbox"><input type="checkbox" name="include_'+t.id+'" value="yes" '+(t.included!==false?'checked':'')+'> <strong>'+e(t.title)+'</strong></label><div class="form-two">'+input('Responsible person','owner_'+t.id,t.owner,'text',false)+input('Deadline'+(eightLeadDays(t)?' (recommended '+eightLeadDays(t)+' working day'+(eightLeadDays(t)===1?'':'s')+' before)':''),'due_'+t.id,t.due,'date',false)+eightDeadlineNote(t,p)+'</div><span class="small-meta">Army step '+t.step+'</span></div>').join('')+'<button class="btn tiny" type="button" data-act="eight-add-task" data-id="'+e(p.id)+'">+ Add custom requirement</button>':
  '<div class="eight-review"><h3>'+e(p.title)+'</h3><p>'+fmt(p.date)+' • '+e(p.time||'')+' • '+e(p.where||'Location TBD')+'</p><p>'+e(p.who||'Participants TBD')+' • Lead '+e(p.lead||'TBD')+'</p><h3>Preparation tasks</h3>'+
  (p.tasks||[]).filter(x=>x.included!==false).map(x=>'<p>☐ '+e(x.title)+' • '+e(x.owner)+' • '+fmt(x.due)+'</p>').join('')+
  '<h3>Eight-step progress</h3>'+eightStepNames.map((n,i)=>'<p>'+(i+1)+'. '+e(n)+' • '+e(p.steps?.[i]?.status||'Not started')+'</p>').join('')+
