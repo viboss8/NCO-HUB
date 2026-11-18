@@ -695,6 +695,14 @@ body:has(.soldiers-workspace) .main .content{padding-bottom:90px}
 .eight-step-progress{font-size:12px;font-weight:800;color:#1e5639;background:#eaf1e8;padding:12px;border-radius:7px;margin-bottom:18px}
 .eight-task-editor{border:1px solid #bfcfc0;border-radius:10px;padding:10px;margin:11px 0;background:#fbfcfa}.eight-task-editor .form-two{margin-top:8px}
 .eight-task-editor .form-two{grid-template-columns:minmax(0,1fr) minmax(0,1.35fr)}
+.eight-task-editor .field{min-width:0}
+.eight-task-editor .field input[type="date"]{
+  width:clamp(min(8rem,100%),70%,100%);
+  min-width:0;
+  max-width:100%;
+  padding:6px 7px;
+  font-size:12px;
+}
 .eight-task-editor .deadline-recommendation{font-size:10px;font-weight:600;white-space:nowrap}
 @media(max-width:460px){.eight-task-editor .form-two{grid-template-columns:minmax(0,1fr)}}
 .eight-task-editor .field{margin-bottom:8px}.eight-review p,.eight-progress-header p{color:#395244;font-size:12px;line-height:1.6}
