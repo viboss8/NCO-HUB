@@ -677,7 +677,19 @@ body:has(.soldiers-workspace) .main .content{padding-bottom:90px}
 .training-week-empty.training-empty-add{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .training-week-add{appearance:none;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:26px;height:26px;padding:0;border:1px solid #779179;border-radius:7px;background:#eaf1e8;color:#244b33;font-size:20px;line-height:1;font-weight:650;cursor:pointer}
 .training-week-add:hover,.training-week-add:focus-visible{background:#d6e5d6;border-color:#315b3d;outline-offset:2px}
-</style><style>.training-warning-mark,.readiness-alert-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;background:#b52222;color:#fff;font-weight:800;border-radius:50%;height:22px;width:22px;font-size:14px}.training-prep-alert{display:flex;gap:9px;align-items:center;flex-wrap:wrap;border:1px solid #df9999;background:#fff0ef;border-radius:9px;padding:12px;margin:12px 0;color:#742323;font-size:12px}.readiness-alert-row{border-left:3px solid #b73434;padding-left:9px!important}.readiness-alert-row .row-main span{color:#663b3b!important}.training-readiness{margin:14px 0}.training-readiness .training-checkbox{margin:8px 0;padding:7px 0}</style></head>
+</style><style>.training-warning-mark,.readiness-alert-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;background:#b52222;color:#fff;font-weight:800;border-radius:50%;height:22px;width:22px;font-size:14px}.training-prep-alert{display:flex;gap:9px;align-items:center;flex-wrap:wrap;border:1px solid #df9999;background:#fff0ef;border-radius:9px;padding:12px;margin:12px 0;color:#742323;font-size:12px}.readiness-alert-row{border-left:3px solid #b73434;padding-left:9px!important}.readiness-alert-row .row-main span{color:#663b3b!important}.training-readiness{margin:14px 0}.training-readiness .training-checkbox{margin:8px 0;padding:7px 0}</style><style>
+/* Improve readability on white cards, forms and drawers without changing dark sidebar styling */
+.main .content,.drawer,.drawer .accordion,.main .panel,.main .training-area{color:#20342a}
+.drawer .small-meta,.drawer .hint,.drawer .notice,.drawer .field label,.drawer .accordion summary,
+.drawer .training-checkbox,.drawer .training-readiness p,.main .content .small-meta,
+.main .content .row-main span,.main .content .training-week-empty,.main .content .training-muted,
+.main .content .training-event-text small,.main .content .panel-body p,.main .content .training-all-events p,
+.main .content .training-extras summary,.main .content .weekly-todo-panel p{color:#405348!important}
+.drawer .field input,.drawer .field select,.drawer .field textarea{color:#183527;background:#fff;border-color:#96a99b}
+.drawer input::placeholder,.drawer textarea::placeholder{color:#596b60;opacity:1}
+.main .content .text-button{color:#23543a}
+.main .content .training-week-heading span{color:#415648}
+</style></head>
 <body>
 <div id="app"></div>
 <script>
