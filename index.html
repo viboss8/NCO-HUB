@@ -612,6 +612,25 @@ body:has(.soldiers-workspace) .main .content{padding-bottom:90px}
 .soldier-overview-panel .row-main span{font-size:11px}
 .soldier-overview-footer{margin:12px 2px 0}
 @media(max-width:760px){.soldier-availability-grid{grid-template-columns:1fr;gap:9px}.soldier-overview-panel:last-child{grid-column:auto}.soldier-overview-panel{padding:11px}.soldier-overview-title h2{font-size:15px}}
+</style>
+<style>
+/* Readability fix limited to the lower Soldier overview panels */
+.soldiers-workspace .soldier-overview-panel .row-main span,
+.soldiers-workspace .soldier-overview-panel .row-main small,
+.soldiers-workspace .soldier-overview-title small,
+.soldiers-workspace .soldier-overview-panel .small-meta,
+.soldiers-workspace .soldier-overview-panel .empty,
+.soldiers-workspace .soldier-overview-panel .text-button,
+.soldiers-workspace .soldier-overview-footer {
+ color:#344b40 !important;
+}
+.soldiers-workspace .soldier-overview-panel .row-main strong {
+ color:#203b2e !important;
+}
+.soldiers-workspace .soldier-overview-panel .row-main span {
+ font-size:12px;
+ font-weight:550;
+}
 </style></head>
 <body>
 <div id="app"></div>
