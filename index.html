@@ -1043,7 +1043,6 @@ function eightPlanTasks(p){
 }
 function eightSuggestedDeadline(eventDate,leadDays){
  const preferred=workingDaysBefore(eventDate,leadDays);
- if(preferred>=today)return preferred;
  const days=[];
  let d=dateAt(today),end=dateAt(eventDate);
  // A short-notice event has fewer working days than the recommended lead time.
@@ -1051,6 +1050,7 @@ function eightSuggestedDeadline(eventDate,leadDays){
  while(d<end&&days.length<370){if(isWorkingDay(dateKey(d)))days.push(dateKey(d));d.setDate(d.getDate()+1)}
  if(!days.length)return today;
  const maxLead=8;
+ if(days.length>=maxLead)return preferred;
  const position=Math.round((maxLead-Math.min(maxLead,Math.max(1,leadDays)))/(maxLead-1)*(days.length-1));
  return days[Math.max(0,Math.min(days.length-1,position))];
 }
@@ -1059,10 +1059,7 @@ function eightDeadlineNote(t,p){
  if(!lead)return '';
  const ideal=workingDaysBefore(p.date||addDay(14),lead);
  const shortened=ideal<today;
- return '<span class="small-meta eight-deadline-help">'+
-  'Recommended '+lead+' working day'+(lead===1?'':'s')+' before training'+
-  (shortened?' • Short-notice schedule, adjusted to available days':'')+
-  '</span>';
+ return shortened?'<span class="small-meta eight-deadline-help">Short-notice schedule: suggested date adjusted to remaining workdays.</span>':'';
 }
 function eightCreateTasks(p){
  const defaultOwner=p.lead?.trim()||'Training lead';
@@ -1208,7 +1205,7 @@ function eightPlanDrawer(p){
   return control+followup+draw;
  }).join(''):
  step===3?'<p class="small-meta">Review suggested preparation tasks. Uncheck anything unnecessary, edit owners and deadlines. These are not official Army lead times.</p>'+
- (p.tasks||[]).map(t=>'<div class="eight-task-editor">'+(t.custom?input('Custom requirement','title_'+t.id,t.title):'')+'<label class="training-checkbox"><input type="checkbox" name="include_'+t.id+'" value="yes" '+(t.included!==false?'checked':'')+'> <strong>'+e(t.title)+'</strong></label><div class="form-two">'+input('Responsible person','owner_'+t.id,t.owner,'text',false)+input('Deadline','due_'+t.id,t.due,'date',false)+eightDeadlineNote(t,p)+'</div><span class="small-meta">Army step '+t.step+'</span></div>').join('')+'<button class="btn tiny" type="button" data-act="eight-add-task" data-id="'+e(p.id)+'">+ Add custom requirement</button>':
+ (p.tasks||[]).map(t=>'<div class="eight-task-editor">'+(t.custom?input('Custom requirement','title_'+t.id,t.title):'')+'<label class="training-checkbox"><input type="checkbox" name="include_'+t.id+'" value="yes" '+(t.included!==false?'checked':'')+'> <strong>'+e(t.title)+'</strong></label><div class="form-two">'+input('Responsible person','owner_'+t.id,t.owner,'text',false)+input('Deadline'+(t.leadDays?' (recommended '+t.leadDays+' working day'+(t.leadDays===1?'':'s')+' before)':''),'due_'+t.id,t.due,'date',false)+eightDeadlineNote(t,p)+'</div><span class="small-meta">Army step '+t.step+'</span></div>').join('')+'<button class="btn tiny" type="button" data-act="eight-add-task" data-id="'+e(p.id)+'">+ Add custom requirement</button>':
  '<div class="eight-review"><h3>'+e(p.title)+'</h3><p>'+fmt(p.date)+' • '+e(p.time||'')+' • '+e(p.where||'Location TBD')+'</p><p>'+e(p.who||'Participants TBD')+' • Lead '+e(p.lead||'TBD')+'</p><h3>Preparation tasks</h3>'+
  (p.tasks||[]).filter(x=>x.included!==false).map(x=>'<p>☐ '+e(x.title)+' • '+e(x.owner)+' • '+fmt(x.due)+'</p>').join('')+
  '<h3>Eight-step progress</h3>'+eightStepNames.map((n,i)=>'<p>'+(i+1)+'. '+e(n)+' • '+e(p.steps?.[i]?.status||'Not started')+'</p>').join('')+
