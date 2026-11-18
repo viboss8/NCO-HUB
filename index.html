@@ -631,6 +631,17 @@ body:has(.soldiers-workspace) .main .content{padding-bottom:90px}
  font-size:12px;
  font-weight:550;
 }
+</style><style>
+.soldiers-workspace .counseling-panel{grid-column:1/-1}
+.counseling-row{display:flex;align-items:center;gap:8px}
+.counseling-row .row-main{flex:1;min-width:0}
+.counseling-row .row-main span{color:#344b40!important}
+.counseling-state{font-size:11px;font-weight:700;border-radius:8px;padding:5px 7px;background:#edf1e9;color:#254734;white-space:nowrap}
+.counseling-soon{background:#fff0c6;color:#754b12}
+.counseling-overdue{background:#ffe3df;color:#81362b}
+.counseling-note{margin:12px 3px 1px;color:#344b40!important}
+.home-schedule .counseling-row .row-main span{color:#344b40}
+@media(max-width:760px){.counseling-row{flex-wrap:wrap}.counseling-state{font-size:10px}.soldiers-workspace .counseling-panel{grid-column:auto}}
 </style></head>
 <body>
 <div id="app"></div>
@@ -668,7 +679,7 @@ let calendarOffset=0,calendarView='month',weekOffset=0;
 
 const MET=['Video news packages','Radio news packages','Video/radio spots and PSAs','Video/radio newscasts','News, feature, and incident stories','Photographs, spot news, and photo pages','Publications and online publications'];
 const TASKS=[['224-46Q-1001','Produce a Photograph'],['224-46Q-1002','Process an Image for Release'],['224-46Q-1003','Develop a Feature Story'],['224-46Q-2001','Edit Material for Publication'],['224-46Q-2002','Produce a Publication'],['224-46R-1001','Produce a Video Product'],['224-46R-1002','Produce a Radio Product'],['224-46R-2001','Review a Broadcast Product'],['224-46R-3001','Plan a Broadcast Format'],['224-46S-1001','Produce a Multimedia Product'],['224-46S-1004','Apply SAPP Principles'],['224-46S-2003','Maintain an Online External Official Presence'],['224-46S-3002','Develop a Production Plan'],['224-46S-3003','Review a Public Affairs Product for Release'],['224-46S-3004','Establish an Online External Official Presence'],['224-46S-3005','Distribute a Media Product'],['224-46S-3009','Develop Key Messages'],['224-46Z-4513','Manage an Online External Official Presence']];
-const initial=()=>({soldiers:[],events:[],requirements:[],training:[],missions:[],tasks:[],prepPlans:[],met:MET.map(()=>({coverage:'Not trained',proficiency:'Not assessed',evaluation:'Not evaluated'}))});
+const initial=()=>({soldiers:[],events:[],requirements:[],training:[],missions:[],tasks:[],prepPlans:[],counselings:[],met:MET.map(()=>({coverage:'Not trained',proficiency:'Not assessed',evaluation:'Not evaluated'}))});
 const defaultTrainingConfig=()=>({fiscalYear:2027,referenceWeek:8,referenceSunday:'2026-11-15',blockStartWeek:9});
 let trainingBlockOffset=0;
 const trainingConfig=()=>({...defaultTrainingConfig(),...(state.trainingConfig||{})});
@@ -691,6 +702,7 @@ function absenceSummary(){
 const key='nco-mission-control-tracker-v21';let state;try{state=JSON.parse(localStorage.getItem(key))||initial()}catch{state=initial()};let view='home',drawer=null,filter='',tab='all',toastTimer,createFor='',wizardStep=1,wizardRows=1,prepDraft={},quickCategory='task';
 if(!Array.isArray(state.prepPlans))state.prepPlans=[];
 if(!Array.isArray(state.absences))state.absences=[];
+if(!Array.isArray(state.counselings))state.counselings=[];
 function prepItems(){return state.prepPlans.flatMap(p=>p.items.map(x=>({...x,planId:p.id,planTitle:p.title,planSoldier:p.soldierId}))).filter(x=>!x.done).sort((a,b)=>a.due.localeCompare(b.due))}
 function prepStatus(x){return x.done?'Completed':x.due<today?'OVERDUE':x.due===today?'DUE TODAY':'Pending'}
 function prepCards(arr){return arr.map(x=>`<div class="list-row"><input class="check-task" type="checkbox" data-act="prep-toggle" data-id="${e(x.planId)}" data-item="${e(x.id)}" ${x.done?'checked':''} aria-label="Complete ${e(x.title)}"><div class="row-main"><strong>${e(x.title)}</strong><span>${e(x.planTitle)} • ${e(x.owner)} • Due ${fmt(x.due)}</span></div>${chip(prepStatus(x))}<button class="text-button" data-act="prep-detail" data-id="${e(x.planId)}">View ›</button></div>`).join('')}
@@ -704,7 +716,7 @@ async function deriveVaultKey(pass,salt){const base=await crypto.subtle.importKe
 async function sealedSnapshot(snapshot,keyToUse,saltToUse){const iv=crypto.getRandomValues(new Uint8Array(12)),cipher=await crypto.subtle.encrypt({name:'AES-GCM',iv},keyToUse,enc.encode(snapshot));return JSON.stringify({version:1,kdf:'PBKDF2-SHA256',iterations:250000,salt:b64(saltToUse),iv:b64(iv),ciphertext:b64(new Uint8Array(cipher))})}
 function validVault(v){return v&&v.version===1&&v.kdf==='PBKDF2-SHA256'&&v.iterations===250000&&typeof v.salt==='string'&&typeof v.iv==='string'&&typeof v.ciphertext==='string'}
 function validTracker(v){return v&&['soldiers','events','requirements','training','missions','tasks','prepPlans','met'].every(k=>Array.isArray(v[k]))}
-async function unlockVault(pass){try{const v=JSON.parse(localStorage.getItem(vaultStorageKey)||'null');if(!validVault(v))throw Error('Invalid vault');const salt=bytesFrom64(v.salt),candidate=await deriveVaultKey(pass,salt);const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytesFrom64(v.iv)},candidate,bytesFrom64(v.ciphertext));const decoded=JSON.parse(dec.decode(pt));if(!validTracker(decoded))throw Error('Invalid tracker data');state=decoded;vaultKey=candidate;vaultSalt=salt;render();notify('Tracker unlocked');return true}catch(err){notify('Unable to unlock. Check the passphrase or backup.');return false}}
+async function unlockVault(pass){try{const v=JSON.parse(localStorage.getItem(vaultStorageKey)||'null');if(!validVault(v))throw Error('Invalid vault');const salt=bytesFrom64(v.salt),candidate=await deriveVaultKey(pass,salt);const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytesFrom64(v.iv)},candidate,bytesFrom64(v.ciphertext));const decoded=JSON.parse(dec.decode(pt));if(!validTracker(decoded))throw Error('Invalid tracker data');state=decoded;if(!Array.isArray(state.counselings))state.counselings=[];if(!Array.isArray(state.absences))state.absences=[];vaultKey=candidate;vaultSalt=salt;render();notify('Tracker unlocked');return true}catch(err){notify('Unable to unlock. Check the passphrase or backup.');return false}}
 async function createVault(pass){if(typeof crypto==='undefined'||!crypto.subtle){notify('Secure storage requires HTTPS and browser encryption support.');return}
  if(pass.length<12){notify('Use at least 12 characters for your passphrase.');return}
  if(localStorage.getItem(vaultStorageKey)){notify('A protected tracker already exists. Unlock it instead.');return}
@@ -733,6 +745,7 @@ function home(){
 
  const abs=absenceSummary(),outNow=abs.filter(x=>x.date<=today&&x.endDate>=today);
  const absCards=abs.slice(0,5).map(x=>'<div class="list-row"><div class="row-main"><strong>'+e(who(x.soldierId))+' • '+e(x.type)+'</strong><span>'+fmt(x.date)+' to '+fmt(x.endDate)+(x.date<=today&&x.endDate>=today?' • Out now':'')+'</span></div><button class="text-button" data-act="absence-detail" data-id="'+e(x.id)+'">Edit ›</button></div>').join('');
+ const counselAlerts=counselingRows().filter(x=>['Due soon','Overdue','No date recorded'].includes(x.status));
  const todayEvents=state.events.filter(x=>x.date===today).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
  const myActions=state.tasks.filter(x=>!x.done).sort((a,b)=>a.due.localeCompare(b.due));
  const soldierActions=[
@@ -750,7 +763,7 @@ function home(){
   '<div class="metrics">'+metric('Today',todayEvents.length,'Calendar commitments','calendar','schedule')+metric('My Actions',myActions.length,'Open follow-ups','tasks','my-actions')+metric('Soldier Actions',soldierActions.length,'Open requirements','users','soldier-actions')+metric('Active Soldiers',state.soldiers.filter(x=>x.active!==false).length,'Profiles on this device','users','soldiers')+'</div>'+
   '<div class="home-action-grid">'+panel('MY ACTIONS',myCards||'<div class="empty">No open follow-ups. Add your next action when it comes up.</div>','<button class="text-button" data-act="goto" data-id="tasks">All my tasks ›</button>')+
   panel('SOLDIER ACTIONS',soldierCards||'<div class="empty">No outstanding tracked Soldier requirements.</div>','<button class="text-button" data-act="goto" data-id="soldiers">Soldier profiles ›</button>')+'</div>'+
-  '<div class="home-schedule">'+panel('SOLDIER LEAVE & PASSES'+(outNow.length?' • '+outNow.length+' OUT NOW':''),absCards||'<div class="empty">No upcoming Leave or Pass records.</div>','<button class="text-button" data-act="new-absence">+ Add Leave / Pass</button>')+panel("TODAY'S SCHEDULE",todayCards||'<div class="empty">Nothing scheduled for today.</div>','<button class="text-button" data-act="calendar">Full calendar ›</button>')+'</div>';
+  '<div class="home-schedule">'+panel('COUNSELING REMINDERS',counselingPanelRows(counselAlerts.slice(0,6))||'<div class="empty">No counseling reminders need attention.</div>','<button class="text-button" data-act="goto" data-id="soldiers">All counseling ›</button>')+panel('SOLDIER LEAVE & PASSES'+(outNow.length?' • '+outNow.length+' OUT NOW':''),absCards||'<div class="empty">No upcoming Leave or Pass records.</div>','<button class="text-button" data-act="new-absence">+ Add Leave / Pass</button>')+panel("TODAY'S SCHEDULE",todayCards||'<div class="empty">Nothing scheduled for today.</div>','<button class="text-button" data-act="calendar">Full calendar ›</button>')+'</div>';
 }
 function orgChart(){
  const active=state.soldiers.filter(x=>x.active!==false),byId=new Map(active.map(x=>[x.id,x]));
@@ -761,6 +774,18 @@ function orgChart(){
  if(!levels.length)return '<section class="org-section hierarchy-section vertical-hierarchy"><p class="empty">Import your roster to see the section.</p></section>';
  return '<section class="org-section hierarchy-section vertical-hierarchy" aria-label="Section reporting hierarchy"><div class="vertical-hierarchy-stack">'+levels.map((people,i)=>'<div class="vertical-hierarchy-level'+(people.length>1?' has-peers':'')+'">'+people.map(tile).join('')+'</div>'+(i<levels.length-1?'<div class="vertical-hierarchy-connector" aria-hidden="true"></div>':'')).join('')+'</div></section>';
 }
+
+function counselingInterval(s){const rank=(s?.rank||s?.name||'').toUpperCase().split(' ')[0];return ['CPL','SGT','SSG','SFC','MSG','1SG','SGM','CSM','2LT','1LT','CPT','MAJ','LTC','COL'].includes(rank)?'Quarterly':'Monthly'}
+function counselingMonthEnd(date,months){let d=dateAt(date);return dateKey(new Date(d.getFullYear(),d.getMonth()+months+1,0,12))}
+function counselingMonths(date,months){let d=dateAt(date),m=d.getMonth()+months;return dateKey(new Date(d.getFullYear(),m,Math.min(d.getDate(),new Date(d.getFullYear(),m+1,0,12).getDate()),12))}
+function counselingStatus(s){
+ const logs=(state.counselings||[]).filter(x=>x.soldierId===s.id).slice().sort((a,b)=>b.date.localeCompare(a.date));
+ const last=logs[0],cadence=counselingInterval(s),due=last?(cadence==='Monthly'?counselingMonthEnd(last.date,1):counselingMonths(last.date,3)):null;
+ const days=due?Math.round((dateAt(due)-dateAt(today))/86400000):null;
+ return {soldier:s,last,cadence,due,days,status:!last?'No date recorded':days<0?'Overdue':days<=14?'Due soon':cadence==='Monthly'&&last.date.slice(0,7)===today.slice(0,7)?'Completed this month':'Upcoming'}
+}
+function counselingRows(){return state.soldiers.filter(x=>x.active!==false).map(counselingStatus).sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||a.soldier.name.localeCompare(b.soldier.name))}
+function counselingPanelRows(rows){return rows.map(x=>'<div class="list-row counseling-row"><div class="row-main"><strong>'+e(x.soldier.name)+'</strong><span>'+e(x.cadence)+' • '+(x.due?'Next '+fmt(x.due):'Last counseling date needed')+(x.soldier.reportsTo?' • Counselor: '+e(who(x.soldier.reportsTo)):'')+'</span></div><span class="counseling-state '+(x.status==='Overdue'?'counseling-overdue':x.status==='Due soon'?'counseling-soon':'')+'">'+e(x.status)+'</span><button class="text-button" data-act="new-counseling" data-id="'+e(x.soldier.id)+'">Record ›</button></div>').join('')}
 function soldiers(){
  const active=state.soldiers.filter(x=>x.active!==false);
  const absences=(state.absences||[]).filter(x=>x.endDate>=today).sort((a,b)=>a.date.localeCompare(b.date));
@@ -779,6 +804,7 @@ function soldiers(){
   ...state.tasks.filter(x=>!x.done&&x.soldierId).map(x=>({id:x.id,kind:'task',name:x.title,person:who(x.soldierId),due:x.due})),
   ...state.missions.filter(x=>x.stage!==4&&x.owner).map(x=>({id:x.id,kind:'mission',name:x.title,person:who(x.owner),due:x.due}))
  ].sort((a,b)=>a.due.localeCompare(b.due));
+ const counseling=counselingRows();
  const actionRows=actions.slice(0,8).map(x=>'<div class="list-row"><div class="row-main"><strong>'+e(x.name)+'</strong><span>'+e(x.person)+' • Due '+fmt(x.due)+(x.due<today?' • OVERDUE':'')+'</span></div><button class="text-button" data-act="'+x.kind+'-detail" data-id="'+e(x.id)+'">Open ›</button></div>').join('');
  return '<div class="soldiers-workspace"><div class="soldiers-intro"><div class="soldiers-intro-heading"><div class="eyebrow">TEAM ACCOUNTABILITY</div><h1>Your Section</h1><p>Tap a Soldier for appointments, training and follow-ups.</p></div><div class="soldier-intro-actions"><button class="btn primary" data-act="new-soldier">+ Add</button><button class="btn" data-act="roster-import">Import</button></div></div>'+
  (!active.length?'<div class="setup-strip"><strong>Your section roster is not loaded on this device</strong><p>Import your roster above to see the reporting hierarchy. Data stays in this browser.</p></div>':'')+
@@ -788,6 +814,7 @@ function soldiers(){
  '<section class="soldier-overview-panel"><div class="soldier-overview-title"><div><h2>Leave & Pass</h2><small>'+outNow.length+' out now • '+absences.length+' upcoming/current</small></div><button class="btn tiny" data-act="new-absence">+ Add</button></div>'+(availabilityRows||'<div class="empty">No upcoming leave or passes.</div>')+'</section>'+
  '<section class="soldier-overview-panel"><div class="soldier-overview-title"><div><h2>Upcoming Appointments</h2><small>'+appointments.length+' upcoming Soldier appointment'+(appointments.length===1?'':'s')+'</small></div><button class="btn tiny" data-act="new-event">+ Add</button></div>'+(appointmentRows||'<div class="empty">No upcoming Soldier appointments recorded.</div>')+'</section>'+
  '<section class="soldier-overview-panel"><div class="soldier-overview-title"><div><h2>Schools & TDY</h2><small>Upcoming dated commitments</small></div><button class="btn tiny" data-act="new-prep">+ Add</button></div>'+(commitmentRows||'<div class="empty">No upcoming schools or TDY recorded.</div>')+'</section>'+
+ '<section class="soldier-overview-panel counseling-panel"><div class="soldier-overview-title"><div><h2>Counseling Accountability</h2><small>Junior enlisted monthly • NCOs quarterly</small></div><button class="btn tiny" data-act="new-counseling">+ Record</button></div>'+(counselingPanelRows(counseling)||'<div class="empty">Import your Soldier roster to start.</div>')+'<p class="small-meta counseling-note">Missing dates are not assumed overdue. Follow your unit SOP.</p></section>'+
  '<section class="soldier-overview-panel"><div class="soldier-overview-title"><div><h2>Soldier Actions</h2><small>'+actions.length+' open requirements, tasks or assignments</small></div><button class="text-button" data-act="goto" data-id="tasks">All tasks ›</button></div>'+(actionRows||'<div class="empty">No outstanding Soldier actions.</div>')+'</section>'+
  '</div><p class="small-meta soldier-overview-footer">Tap any name in the hierarchy above for that Soldier’s complete profile. These summaries use existing local calendar, training and task records.</p></div>';
 }
@@ -823,6 +850,7 @@ function calendarDayData(d){
   ...(state.absences||[]).filter(x=>spansDate(x,d)).map(x=>({id:x.id,kind:'absence',name:absenceLabel(x),start:x.date,end:x.endDate}))
  ];
  const due=[
+  ...counselingRows().filter(x=>x.due===d).map(x=>({id:x.soldier.id,kind:'counseling',name:'Counseling: '+x.soldier.name,sub:x.cadence+' due • '+(x.soldier.reportsTo?who(x.soldier.reportsTo):'Counselor not assigned'),group:'deadline'})),
   ...state.tasks.filter(x=>!x.done&&x.due===d).map(x=>({id:x.id,kind:'task',name:x.title,sub:x.soldierId?'Follow up • '+who(x.soldierId):'My follow-up',group:'followup'})),
   ...state.requirements.filter(x=>x.completion!=='Verified'&&x.due===d).map(x=>({id:x.id,kind:'requirement',name:x.course,sub:'Training deadline • '+who(x.soldierId),group:'deadline'})),
   ...state.missions.filter(x=>x.stage!==4&&x.due===d).map(x=>({id:x.id,kind:'mission',name:x.title,sub:'Mission deadline'+(x.owner?' • '+who(x.owner):''),group:'deadline'})),
