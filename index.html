@@ -596,7 +596,23 @@ body:has(.soldiers-workspace) .main .content{padding-bottom:90px}
  .training-area{padding:10px}
  .training-area-head h2{font-size:15px}
 }
-</style><style>.event-end-date[hidden]{display:none!important}</style></head>
+</style><style>.event-end-date[hidden]{display:none!important}</style><style>
+/* Soldiers overview replaces redundant profile tiles; hierarchy deliberately unchanged */
+.soldier-availability-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin-top:10px}
+.soldier-overview-panel{min-width:0;background:#fffaf0;border:1px solid #d4ceb3;border-radius:12px;padding:13px}
+.soldier-overview-panel:last-child{grid-column:1 / -1}
+.soldier-overview-title{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px}
+.soldier-overview-title h2{font-size:16px;line-height:1.2;margin:0 0 3px;color:#2d4330}
+.soldier-overview-title small{font-size:11px;color:#67745f}
+.soldier-overview-title .btn{flex-shrink:0}
+.soldier-overview-panel .list-row{border-bottom:1px solid #e6e4d7;padding:9px 1px;gap:8px}
+.soldier-overview-panel .list-row:last-child{border-bottom:0}
+.soldier-overview-panel .row-main{min-width:0}
+.soldier-overview-panel .row-main strong{overflow-wrap:anywhere}
+.soldier-overview-panel .row-main span{font-size:11px}
+.soldier-overview-footer{margin:12px 2px 0}
+@media(max-width:760px){.soldier-availability-grid{grid-template-columns:1fr;gap:9px}.soldier-overview-panel:last-child{grid-column:auto}.soldier-overview-panel{padding:11px}.soldier-overview-title h2{font-size:15px}}
+</style></head>
 <body>
 <div id="app"></div>
 <script>
@@ -726,7 +742,33 @@ function orgChart(){
  if(!levels.length)return '<section class="org-section hierarchy-section vertical-hierarchy"><p class="empty">Import your roster to see the section.</p></section>';
  return '<section class="org-section hierarchy-section vertical-hierarchy" aria-label="Section reporting hierarchy"><div class="vertical-hierarchy-stack">'+levels.map((people,i)=>'<div class="vertical-hierarchy-level'+(people.length>1?' has-peers':'')+'">'+people.map(tile).join('')+'</div>'+(i<levels.length-1?'<div class="vertical-hierarchy-connector" aria-hidden="true"></div>':'')).join('')+'</div></section>';
 }
-function soldiers(){let arr=state.soldiers.filter(s=>s.active!==false&&`${s.name} ${s.role}`.toLowerCase().includes(filter.toLowerCase()));const people=arr.map(s=>{let req=state.requirements.filter(x=>x.soldierId===s.id&&x.completion!=='Verified');let open=state.tasks.filter(x=>x.soldierId===s.id&&!x.done);let commitments=state.events.filter(v=>v.soldierIds.includes(s.id)&&v.date>=today).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));let next=[...req.map(r=>({label:r.course,date:r.due,kind:'Course due'})),...open.map(t=>({label:t.title,date:t.due,kind:'Follow-up'})),...commitments.map(v=>({label:v.title,date:v.date,kind:'Scheduled'}))].sort((a,b)=>a.date.localeCompare(b.date))[0];return `<button class="soldier soldier-large" data-act="soldier-detail" data-id="${s.id}"><div class="soldier-card-top"><span class="initials">${e(s.initials)}</span><span class="role-pill">${e(s.role)}</span></div><div class="soldier-card-name">${e(s.name)}</div><div class="small-meta">${s.reportsTo?'Reports to '+e(who(s.reportsTo)):'Section oversight'}</div><div class="soldier-next"><span class="soldier-caption">NEXT COMMITMENT / DEADLINE</span>${next?`<strong>${e(next.label)}</strong><span>${e(next.kind)} • ${fmt(next.date)}</span>`:'<strong>No upcoming items</strong><span>Nothing scheduled</span>'}</div><div class="soldier-card-bottom"><span>${req.length} open training</span><span>${open.length} follow-ups</span><span class="soldier-arrow">View profile ›</span></div></button>`}).join('');return `<div class="soldiers-workspace"><div class="soldiers-intro"><div class="soldiers-intro-heading"><div class="eyebrow">TEAM ACCOUNTABILITY</div><h1>Your Section</h1><p>Tap a Soldier for appointments, training and follow-ups.</p></div><div class="soldier-intro-actions"><button class="btn primary" data-act="new-soldier">+ Add</button><button class="btn" data-act="roster-import">Import</button></div></div>`+`${!state.soldiers.some(s=>s.active!==false)?'<div class="setup-strip"><strong>Your section roster is not loaded on this device</strong><p>Tap Import Roster above, then choose the latest roster JSON file saved from this chat. The chain of command and Soldier profiles will appear here. This step is only needed once per browser or after restoring a backup.</p></div>':''}${orgChart()}<input id="roster-file" type="file" accept=".json,application/json" hidden><details class="soldiers-extras"><summary>Search, detailed Soldier cards and storage settings</summary><div class="toolbar"><input class="search" id="search" aria-label="Search Soldiers" placeholder="Search Soldier or position..." value="${e(filter)}"/></div><div class="soldier-grid">${people}</div>${arr.length?'':'<div class="empty">No matching Soldiers.</div>'}${securityPanel()}</details></div>`}
+function soldiers(){
+ const active=state.soldiers.filter(x=>x.active!==false);
+ const absences=(state.absences||[]).filter(x=>x.endDate>=today).sort((a,b)=>a.date.localeCompare(b.date));
+ const outNow=absences.filter(x=>x.date<=today&&x.endDate>=today);
+ const availabilityRows=absences.slice(0,8).map(x=>'<div class="list-row"><div class="row-main"><strong>'+e(who(x.soldierId))+' • '+e(x.type)+'</strong><span>'+fmt(x.date)+' to '+fmt(x.endDate)+(x.date<=today&&x.endDate>=today?' • Out now':'')+'</span></div><button class="text-button" data-act="absence-detail" data-id="'+e(x.id)+'">Edit ›</button></div>').join('');
+ // Schools and TDY may be entered as guided preparation plans or calendar events.
+ const commitments=[
+  ...state.prepPlans.filter(x=>(x.endDate||x.date)>=today&&/training|school|tdy|travel|course/i.test((x.type||'')+' '+(x.title||''))).map(x=>({id:x.id,kind:'prep',title:x.title,date:x.date,endDate:x.endDate||x.date,person:x.soldierId?who(x.soldierId):'Section'})),
+  ...state.events.filter(x=>(x.endDate||x.date)>=today&&/training|school|tdy|travel|course/i.test((x.type||'')+' '+(x.title||''))).map(x=>({id:x.id,kind:'event',title:x.title,date:x.date,endDate:x.endDate||x.date,person:(x.soldierIds||[]).length?x.soldierIds.map(who).join(', '):'Section'}))
+ ].sort((a,b)=>a.date.localeCompare(b.date));
+ const commitmentRows=commitments.slice(0,8).map(x=>'<div class="list-row"><div class="row-main"><strong>'+e(x.title)+'</strong><span>'+e(x.person)+' • '+fmt(x.date)+(x.endDate!==x.date?' to '+fmt(x.endDate):'')+'</span></div><button class="text-button" data-act="'+x.kind+'-detail" data-id="'+e(x.id)+'">Open ›</button></div>').join('');
+ const actions=[
+  ...state.requirements.filter(x=>x.completion!=='Verified').map(x=>({id:x.id,kind:'requirement',name:x.course,person:who(x.soldierId),due:x.due})),
+  ...state.tasks.filter(x=>!x.done&&x.soldierId).map(x=>({id:x.id,kind:'task',name:x.title,person:who(x.soldierId),due:x.due})),
+  ...state.missions.filter(x=>x.stage!==4&&x.owner).map(x=>({id:x.id,kind:'mission',name:x.title,person:who(x.owner),due:x.due}))
+ ].sort((a,b)=>a.due.localeCompare(b.due));
+ const actionRows=actions.slice(0,8).map(x=>'<div class="list-row"><div class="row-main"><strong>'+e(x.name)+'</strong><span>'+e(x.person)+' • Due '+fmt(x.due)+(x.due<today?' • OVERDUE':'')+'</span></div><button class="text-button" data-act="'+x.kind+'-detail" data-id="'+e(x.id)+'">Open ›</button></div>').join('');
+ return '<div class="soldiers-workspace"><div class="soldiers-intro"><div class="soldiers-intro-heading"><div class="eyebrow">TEAM ACCOUNTABILITY</div><h1>Your Section</h1><p>Tap a Soldier for appointments, training and follow-ups.</p></div><div class="soldier-intro-actions"><button class="btn primary" data-act="new-soldier">+ Add</button><button class="btn" data-act="roster-import">Import</button></div></div>'+
+ (!active.length?'<div class="setup-strip"><strong>Your section roster is not loaded on this device</strong><p>Import your roster above to see the reporting hierarchy. Data stays in this browser.</p></div>':'')+
+ orgChart()+
+ '<input id="roster-file" type="file" accept=".json,application/json" hidden>'+
+ '<div class="soldier-availability-grid">'+
+ '<section class="soldier-overview-panel"><div class="soldier-overview-title"><div><h2>Leave & Pass</h2><small>'+outNow.length+' out now • '+absences.length+' upcoming/current</small></div><button class="btn tiny" data-act="new-absence">+ Add</button></div>'+(availabilityRows||'<div class="empty">No upcoming leave or passes.</div>')+'</section>'+
+ '<section class="soldier-overview-panel"><div class="soldier-overview-title"><div><h2>Schools & TDY</h2><small>Upcoming dated commitments</small></div><button class="btn tiny" data-act="new-prep">+ Add</button></div>'+(commitmentRows||'<div class="empty">No upcoming schools or TDY recorded.</div>')+'</section>'+
+ '<section class="soldier-overview-panel"><div class="soldier-overview-title"><div><h2>Soldier Actions</h2><small>'+actions.length+' open requirements, tasks or assignments</small></div><button class="text-button" data-act="goto" data-id="tasks">All tasks ›</button></div>'+(actionRows||'<div class="empty">No outstanding Soldier actions.</div>')+'</section>'+
+ '</div><p class="small-meta soldier-overview-footer">Tap any name in the hierarchy above for that Soldier’s complete profile. These summaries use existing local calendar, training and task records.</p></div>';
+}
 function training(){
  const block=trainingBlock(),c=trainingConfig(),all=state.training||[];
  const inBlock=all.filter(t=>t.date<=block[2].end&&(t.endDate||t.date)>=block[0].start).sort((a,b)=>a.date.localeCompare(b.date));
