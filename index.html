@@ -754,6 +754,10 @@ body:has(.soldiers-workspace) .main .content{padding-bottom:90px}
  .page-home .panel-head,.page-tasks .panel-head{padding:12px}
  .page-met .met-section-intro{align-items:flex-start;flex-direction:column}
 }
+</style><style>
+/* Distinguish early, nonurgent readiness from urgent unnotified/near-term training. */
+.training-warning-mark.training-warning-amber{background:#c67d1d!important;color:#fff!important}
+.training-event-row .training-warning-amber{border:1px solid #a96513}
 </style></head>
 <body>
 <div id="app"></div>
@@ -967,15 +971,33 @@ function soldiers(){
  '<section class="soldier-overview-panel"><div class="soldier-overview-title"><div><h2>Soldier Actions</h2><small>'+actions.length+' open requirements, tasks or assignments</small></div><button class="text-button" data-act="goto" data-id="tasks">All tasks ›</button></div>'+(actionRows||'<div class="empty">No outstanding Soldier actions.</div>')+'</section>'+
  '</div><p class="small-meta soldier-overview-footer">Tap any name in the hierarchy above for that Soldier’s complete profile. These summaries use existing local calendar, training and task records.</p></div>';
 }
-const trainingReadyChecks=[{id:'materials',label:'Slides / training materials ready (or not needed)'},{id:'briefer',label:'Instructor / briefer coordinated'},{id:'logistics',label:'Location and required resources confirmed'}];
+const trainingReadyChecks=[
+ {id:'notified',label:'Instructor / briefer has been notified'},
+ {id:'materials',label:'Slides / training materials ready (or not needed)'},
+ {id:'briefer',label:'Instructor / briefer coordinated'},
+ {id:'logistics',label:'Location and required resources confirmed'}
+];
 function trainingReadyState(t){
- const complete=trainingReadyChecks.filter(x=>t.readyChecks?.[x.id]===true).length,d=dateAt(t.date);
- d.setDate(d.getDate()-2);
- const due=dateKey(d),days=Math.round((dateAt(t.date)-dateAt(today))/86400000),active=t.status!=='Canceled'&&t.status!=='Conducted',ready=complete===3;
- return {complete,due,days,active,ready,showAlert:active&&!ready&&days<=7,status:ready?'Ready':days<2?'Preparation overdue':days<=7?'Prepare now':'Not ready'};
+ const complete=trainingReadyChecks.filter(x=>t.readyChecks?.[x.id]===true).length;
+ const d=dateAt(t.date);d.setDate(d.getDate()-2);
+ const due=dateKey(d),days=Math.round((dateAt(t.date)-dateAt(today))/86400000);
+ const active=t.status!=='Canceled'&&t.status!=='Conducted';
+ const ready=complete===trainingReadyChecks.length;
+ const notified=t.readyChecks?.notified===true;
+ const urgency=!active?'inactive':ready?'ready':!notified||days<=7?'red':'amber';
+ return {complete,total:trainingReadyChecks.length,due,days,active,ready,notified,urgency,
+  showAlert:active&&urgency==='red',
+  status:urgency==='ready'?'Ready':urgency==='inactive'?'Inactive':urgency==='red'?'Needs attention':'Preparation pending'};
 }
-function trainingReadinessAlerts(){return state.training.filter(t=>t.date&&trainingReadyState(t).showAlert).sort((a,b)=>a.date.localeCompare(b.date))}
-function trainingReadinessRow(t){const z=trainingReadyState(t);return '<div class="list-row readiness-alert-row"><span class="readiness-alert-icon" aria-label="Training not ready">!</span><div class="row-main"><strong>'+e(t.title)+'</strong><span>Training '+fmt(t.date)+' • Prepare by '+fmt(z.due)+' • '+z.complete+'/3 checks complete</span></div><button class="text-button" data-act="training-detail" data-id="'+e(t.id)+'">Prepare ›</button></div>'}
+function trainingReadinessAlerts(){
+ return state.training.filter(t=>t.date&&trainingReadyState(t).showAlert).sort((a,b)=>a.date.localeCompare(b.date))
+}
+function trainingReadinessRow(t){
+ const z=trainingReadyState(t);
+ return '<div class="list-row readiness-alert-row"><span class="readiness-alert-icon" aria-label="Training needs attention">!</span><div class="row-main"><strong>'+e(t.title)+'</strong><span>'+
+ (!z.notified?'Instructor has not been notified • ':'')+
+ 'Training '+fmt(t.date)+' • Prepare by '+fmt(z.due)+' • '+z.complete+'/'+z.total+' checks complete</span></div><button class="text-button" data-act="training-detail" data-id="'+e(t.id)+'">Prepare ›</button></div>';
+}
 
 const eightStepNames=[
  'Plan the training event','Train and certify leaders','Recon training site',
@@ -1090,11 +1112,11 @@ function training(){
  const upcoming=all.filter(t=>(t.endDate||t.date)>=today&&t.status!=='Canceled').length;
  const openPrep=prepItems(),readinessAlerts=trainingReadinessAlerts();
  const byWeek=block.map(w=>'<div class="training-week"><div class="training-week-heading"><strong>'+e(w.label)+'</strong><span>'+fmt(w.start,{month:'short',day:'numeric'})+' to '+fmt(w.end,{month:'short',day:'numeric'})+'</span></div>'+
-  (inBlock.filter(t=>t.date<=w.end&&(t.endDate||t.date)>=w.start).map(t=>'<button class="training-event-row" data-act="training-detail" data-id="'+e(t.id)+'"><span class="training-event-date">'+fmt(t.date,{weekday:'short',day:'numeric'})+'</span><span class="training-event-text"><strong>'+e(t.title)+'</strong><small>'+(t.time?e(t.time)+' • ':'')+e(t.status||'Planned')+(t.planId?' • 8-Step Plan':'')+' • '+e(t.instructorId?who(t.instructorId):t.outsideInstructor||t.instructor||'Instructor not assigned')+'</small></span>'+(trainingReadyState(t).active&&!trainingReadyState(t).ready?'<span class="training-warning-mark" aria-label="Training not ready">!</span>':'<span aria-hidden="true">›</span>')+'</button>').join('')||'<div class="training-week-empty training-empty-add"><span>No section training scheduled</span><button type="button" class="training-week-add" data-act="training-week-add" data-id="'+e(w.start)+'" aria-label="Add section training to '+e(w.label)+'" title="Add training to '+e(w.label)+'">+</button></div>')+'</div>').join('');
+  (inBlock.filter(t=>t.date<=w.end&&(t.endDate||t.date)>=w.start).map(t=>'<button class="training-event-row" data-act="training-detail" data-id="'+e(t.id)+'"><span class="training-event-date">'+fmt(t.date,{weekday:'short',day:'numeric'})+'</span><span class="training-event-text"><strong>'+e(t.title)+'</strong><small>'+(t.time?e(t.time)+' • ':'')+e(t.status||'Planned')+(t.planId?' • 8-Step Plan':'')+' • '+e(t.instructorId?who(t.instructorId):t.outsideInstructor||t.instructor||'Instructor not assigned')+'</small></span>'+(trainingReadyState(t).active&&!trainingReadyState(t).ready?'<span class="training-warning-mark '+(trainingReadyState(t).urgency==='amber'?'training-warning-amber':'')+'" aria-label="'+(trainingReadyState(t).urgency==='red'?'Training needs attention':'Preparation pending')+'" title="'+(trainingReadyState(t).urgency==='red'?'Urgent: notify instructor or finish preparation within seven days':'Preparation pending, class is more than seven days away')+'">!</span>':'<span aria-hidden="true">›</span>')+'</button>').join('')||'<div class="training-week-empty training-empty-add"><span>No section training scheduled</span><button type="button" class="training-week-add" data-act="training-week-add" data-id="'+e(w.start)+'" aria-label="Add section training to '+e(w.label)+'" title="Add training to '+e(w.label)+'">+</button></div>')+'</div>').join('');
  const reqTable='<div class="panel table-wrap"><table class="data-table"><thead><tr><th>Course / requirement</th><th>Soldier</th><th>Enrollment</th><th>Attendance</th><th>Completion</th><th>Deadline</th><th></th></tr></thead><tbody>'+rows.map(r=>'<tr><td><strong>'+e(r.course)+'</strong></td><td>'+e(who(r.soldierId))+'</td><td>'+chip(r.enrollment)+'</td><td>'+chip(r.attendance)+'</td><td>'+chip(r.completion)+'</td><td>'+fmt(r.due)+'</td><td><button class="text-button" data-act="requirement-detail" data-id="'+e(r.id)+'">Edit ›</button></td></tr>').join('')+'</tbody></table>'+(rows.length?'':'<div class="empty">No matching requirements.</div>')+'</div>';
  return '<div class="training-workspace">'+heading('TRAINING MANAGEMENT','Training & Planning','Section classes, Soldier requirements, and preparation in one place.')+
  '<div class="training-toolbar"><button class="btn primary" data-act="new-training">+ Add Section Training</button><button class="btn" data-act="eight-new">+ Plan a Training or Class (8-Step)</button><button class="btn" data-act="new-prep">Guided Training Setup</button><button class="btn" data-act="training-config">FY / T-week settings</button></div>'+
- (readinessAlerts.length?'<div class="training-prep-alert"><span class="readiness-alert-icon">!</span><strong>'+readinessAlerts.length+' class'+(readinessAlerts.length===1?'':'es')+' need preparation</strong><span>Be ready two days before class.</span></div>':'')+
+ (readinessAlerts.length?'<div class="training-prep-alert"><span class="readiness-alert-icon">!</span><strong>'+readinessAlerts.length+' class'+(readinessAlerts.length===1?'':'es')+' need preparation</strong><span>Be ready two days before class. Notify the instructor early.</span></div>':'')+
  '<div class="training-summary"><div><strong>'+upcoming+'</strong><span>Upcoming section events</span></div><div><strong>'+openPrep.length+'</strong><span>Open preparation items</span></div><div><strong>'+state.requirements.filter(r=>r.completion!=='Verified').length+'</strong><span>Outstanding requirements</span></div></div>'+
  '<section class="training-area eight-plan-area"><div class="training-area-head"><h2>8-Step Training Plans</h2><button class="btn tiny" data-act="eight-new">+ New Plan</button></div><p class="small-meta">Guided plans, preparation deadlines and eight-step progress. Drafts do not create calendar events.</p>'+(state.trainingPlans.map(eightPlanSummary).join('')||'<p class="empty">No 8-Step plans yet. Start one to test the workflow.</p>')+'</section>'+
  '<section class="training-area"><div class="training-area-head"><h2>1. Section Training Calendar</h2><button class="text-button" data-act="goto" data-id="calendar">Full calendar ›</button></div><div class="training-block-nav"><button class="btn tiny" data-act="training-block-prev" aria-label="Previous three weeks">‹</button><div><strong>FY'+e(String(c.fiscalYear))+' • '+block[0].label+'–'+block[2].label+'</strong><small>'+fmt(block[0].start,{month:'short',day:'numeric'})+' to '+fmt(block[2].end,{month:'short',day:'numeric',year:'numeric'})+'</small></div><button class="btn tiny" data-act="training-block-next" aria-label="Next three weeks">›</button><button class="btn tiny" data-act="training-block-current" aria-label="Return to starting T-week block">Back to T'+e(String(c.blockStartWeek))+'</button></div><div class="training-weeks">'+byWeek+'</div><details class="training-extras"><summary>All section training events ('+all.length+')</summary><div class="training-all-events">'+(all.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(t=>'<button class="training-event-row" data-act="training-detail" data-id="'+e(t.id)+'"><span>'+fmt(t.date)+'</span><strong>'+e(t.title)+'</strong><span>'+e(t.status||'Planned')+' ›</span></button>').join('')||'<p>No section training events saved yet. Use Add Section Training to plan one.</p>')+'</div></details></section>'+
@@ -1150,7 +1172,7 @@ function todoPage(){
  const items=todoItems(),openItems=items.filter(x=>!x.done),complete=items.filter(x=>x.done);
  return heading('WEEKLY PRIORITIES','My To-Do List','Things you need to get done, even when there is no deadline.',
  '<button class="btn primary" data-act="new-todo">+ Add To-Do</button>')+
- '<div class="panel"><div class="panel-head"><h2>Weekly review</h2><span class="small-meta">'+(openItems.length+trainingReadinessAlerts().length)+' needing attention</span></div><div class="panel-body"><p class="small-meta">Revisit weekly. Training readiness appears automatically within seven days of class.</p>'+trainingReadinessAlerts().map(trainingReadinessRow).join('')+
+ '<div class="panel"><div class="panel-head"><h2>Weekly review</h2><span class="small-meta">'+(openItems.length+trainingReadinessAlerts().length)+' needing attention</span></div><div class="panel-body"><p class="small-meta">Revisit weekly. Urgent training readiness alerts appear here, including any class whose instructor has not been notified.</p>'+trainingReadinessAlerts().map(trainingReadinessRow).join('')+
  (openItems.map(todoRow).join('')||'<div class="empty">You are caught up. Add an item when something needs doing.</div>')+'</div></div>'+
  '<details class="panel todo-done-panel"><summary>Completed ('+complete.length+')</summary><div class="panel-body">'+(complete.map(todoRow).join('')||'<div class="empty">No completed to-dos yet.</div>')+'</div></details>';
 }
@@ -1169,7 +1191,7 @@ function calendarDayData(d){
  ];
  const due=[
   ...counselingRows().filter(x=>x.due===d).map(x=>({id:x.soldier.id,kind:'counseling',name:'Counseling: '+x.soldier.name,sub:x.cadence+' due • '+(x.soldier.reportsTo?who(x.soldier.reportsTo):'Counselor not assigned'),group:'deadline'})),
-  ...state.training.filter(x=>x.date&&trainingReadyState(x).active&&!trainingReadyState(x).ready&&trainingReadyState(x).due===d).map(x=>({id:x.id,kind:'training',name:'Prepare for '+x.title,sub:'Readiness target • '+trainingReadyState(x).complete+'/3 checks complete',group:'deadline'})),
+  ...state.training.filter(x=>x.date&&trainingReadyState(x).active&&!trainingReadyState(x).ready&&trainingReadyState(x).due===d).map(x=>({id:x.id,kind:'training',name:'Prepare for '+x.title,sub:'Readiness target • '+trainingReadyState(x).complete+'/'+trainingReadyState(x).total+' checks complete',group:'deadline'})),
   ...state.tasks.filter(x=>!x.done&&x.due===d).map(x=>({id:x.id,kind:'task',name:x.title,sub:x.soldierId?'Follow up • '+who(x.soldierId):'My follow-up',group:'followup'})),
   ...state.requirements.filter(x=>x.completion!=='Verified'&&x.due===d).map(x=>({id:x.id,kind:'requirement',name:x.course,sub:'Training deadline • '+who(x.soldierId),group:'deadline'})),
   ...state.missions.filter(x=>x.stage!==4&&x.due===d).map(x=>({id:x.id,kind:'mission',name:x.title,sub:'Mission deadline'+(x.owner?' • '+who(x.owner):''),group:'deadline'})),
@@ -1292,7 +1314,7 @@ else if(kind==='training'){
  '<details class="accordion" '+(t?.status==='Conducted'?'open':'')+'><summary>AAR / Results</summary>'+
  dropdown('Observed outcome','outcome',['Not assessed','Practice observed','Demonstrated proficiency','Needs retraining'],t?.outcome||'Not assessed')+
  '<div class="field"><label>AAR notes (optional)</label><textarea name="notes">'+e(t?.notes||'')+'</textarea></div></details>'+
-  '<details class="accordion training-readiness" '+(t?'open':'')+'><summary>Before the class: '+(t?(trainingReadyState(t).ready?'Ready':'! '+trainingReadyState(t).complete+'/3 complete'):'Readiness checklist')+'</summary><p class="small-meta">Prepare at least two calendar days before the class. Reminders begin seven days before.</p>'+
+  '<details class="accordion training-readiness" '+(t?'open':'')+'><summary>Before the class: '+(t?(trainingReadyState(t).ready?'Ready':'! '+trainingReadyState(t).complete+'/'+trainingReadyState(t).total+' complete'):'Readiness checklist')+'</summary><p class="small-meta">Prepare at least two calendar days before the class. Red alerts appear if the instructor has not been notified, or if preparation is incomplete within seven calendar days of class.</p>'+
  trainingReadyChecks.map(x=>'<label class="training-checkbox"><input type="checkbox" name="ready_'+x.id+'" '+(t?.readyChecks?.[x.id]?'checked':'')+'> '+e(x.label)+'</label>').join('')+
  (t?'<p class="small-meta">Preparation due '+fmt(trainingReadyState(t).due)+'</p>':'')+'</details>'+
  formButtons()+'</form>'+
