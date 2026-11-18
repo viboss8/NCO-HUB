@@ -726,7 +726,7 @@ let calendarOffset=0,calendarView='month',weekOffset=0;
 
 const MET=['Video news packages','Radio news packages','Video/radio spots and PSAs','Video/radio newscasts','News, feature, and incident stories','Photographs, spot news, and photo pages','Publications and online publications'];
 const TASKS=[['224-46Q-1001','Produce a Photograph'],['224-46Q-1002','Process an Image for Release'],['224-46Q-1003','Develop a Feature Story'],['224-46Q-2001','Edit Material for Publication'],['224-46Q-2002','Produce a Publication'],['224-46R-1001','Produce a Video Product'],['224-46R-1002','Produce a Radio Product'],['224-46R-2001','Review a Broadcast Product'],['224-46R-3001','Plan a Broadcast Format'],['224-46S-1001','Produce a Multimedia Product'],['224-46S-1004','Apply SAPP Principles'],['224-46S-2003','Maintain an Online External Official Presence'],['224-46S-3002','Develop a Production Plan'],['224-46S-3003','Review a Public Affairs Product for Release'],['224-46S-3004','Establish an Online External Official Presence'],['224-46S-3005','Distribute a Media Product'],['224-46S-3009','Develop Key Messages'],['224-46Z-4513','Manage an Online External Official Presence']];
-const initial=()=>({soldiers:[],events:[],requirements:[],training:[],missions:[],tasks:[],prepPlans:[],counselings:[],todos:[],met:MET.map(()=>({coverage:'Not trained',proficiency:'Not assessed',evaluation:'Not evaluated'}))});
+const initial=()=>({soldiers:[],events:[],requirements:[],training:[],missions:[],tasks:[],prepPlans:[],counselings:[],todos:[],trainingPlans:[],met:MET.map(()=>({coverage:'Not trained',proficiency:'Not assessed',evaluation:'Not evaluated'}))});
 const defaultTrainingConfig=()=>({fiscalYear:2027,referenceWeek:8,referenceSunday:'2026-11-15',blockStartWeek:9});
 let trainingBlockOffset=0;
 const trainingConfig=()=>({...defaultTrainingConfig(),...(state.trainingConfig||{})});
@@ -746,11 +746,12 @@ function absenceSummary(){
  return (state.absences||[]).filter(a=>a.endDate>=today).sort((a,b)=>a.date.localeCompare(b.date));
 }
 
-const key='nco-mission-control-tracker-v21';let state;try{state=JSON.parse(localStorage.getItem(key))||initial()}catch{state=initial()};let view='home',drawer=null,filter='',tab='all',tasksPage='todo',trainingDatePreset='',toastTimer,createFor='',wizardStep=1,wizardRows=1,prepDraft={},quickCategory='task';
+const key='nco-mission-control-tracker-v21';let state;try{state=JSON.parse(localStorage.getItem(key))||initial()}catch{state=initial()};let view='home',drawer=null,filter='',tab='all',tasksPage='todo',trainingDatePreset='',eightStepScreen=1,toastTimer,createFor='',wizardStep=1,wizardRows=1,prepDraft={},quickCategory='task';
 if(!Array.isArray(state.prepPlans))state.prepPlans=[];
 if(!Array.isArray(state.absences))state.absences=[];
 if(!Array.isArray(state.counselings))state.counselings=[];
 if(!Array.isArray(state.todos))state.todos=[];
+if(!Array.isArray(state.trainingPlans))state.trainingPlans=[];
 function prepItems(){return state.prepPlans.flatMap(p=>p.items.map(x=>({...x,planId:p.id,planTitle:p.title,planSoldier:p.soldierId}))).filter(x=>!x.done).sort((a,b)=>a.due.localeCompare(b.due))}
 function prepStatus(x){return x.done?'Completed':x.due<today?'OVERDUE':x.due===today?'DUE TODAY':'Pending'}
 function prepCards(arr){return arr.map(x=>`<div class="list-row"><input class="check-task" type="checkbox" data-act="prep-toggle" data-id="${e(x.planId)}" data-item="${e(x.id)}" ${x.done?'checked':''} aria-label="Complete ${e(x.title)}"><div class="row-main"><strong>${e(x.title)}</strong><span>${e(x.planTitle)} • ${e(x.owner)} • Due ${fmt(x.due)}</span></div>${chip(prepStatus(x))}<button class="text-button" data-act="prep-detail" data-id="${e(x.planId)}">View ›</button></div>`).join('')}
@@ -764,7 +765,7 @@ async function deriveVaultKey(pass,salt){const base=await crypto.subtle.importKe
 async function sealedSnapshot(snapshot,keyToUse,saltToUse){const iv=crypto.getRandomValues(new Uint8Array(12)),cipher=await crypto.subtle.encrypt({name:'AES-GCM',iv},keyToUse,enc.encode(snapshot));return JSON.stringify({version:1,kdf:'PBKDF2-SHA256',iterations:250000,salt:b64(saltToUse),iv:b64(iv),ciphertext:b64(new Uint8Array(cipher))})}
 function validVault(v){return v&&v.version===1&&v.kdf==='PBKDF2-SHA256'&&v.iterations===250000&&typeof v.salt==='string'&&typeof v.iv==='string'&&typeof v.ciphertext==='string'}
 function validTracker(v){return v&&['soldiers','events','requirements','training','missions','tasks','prepPlans','met'].every(k=>Array.isArray(v[k]))}
-async function unlockVault(pass){try{const v=JSON.parse(localStorage.getItem(vaultStorageKey)||'null');if(!validVault(v))throw Error('Invalid vault');const salt=bytesFrom64(v.salt),candidate=await deriveVaultKey(pass,salt);const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytesFrom64(v.iv)},candidate,bytesFrom64(v.ciphertext));const decoded=JSON.parse(dec.decode(pt));if(!validTracker(decoded))throw Error('Invalid tracker data');state=decoded;if(!Array.isArray(state.counselings))state.counselings=[];if(!Array.isArray(state.absences))state.absences=[];if(!Array.isArray(state.todos))state.todos=[];vaultKey=candidate;vaultSalt=salt;render();notify('Tracker unlocked');return true}catch(err){notify('Unable to unlock. Check the passphrase or backup.');return false}}
+async function unlockVault(pass){try{const v=JSON.parse(localStorage.getItem(vaultStorageKey)||'null');if(!validVault(v))throw Error('Invalid vault');const salt=bytesFrom64(v.salt),candidate=await deriveVaultKey(pass,salt);const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytesFrom64(v.iv)},candidate,bytesFrom64(v.ciphertext));const decoded=JSON.parse(dec.decode(pt));if(!validTracker(decoded))throw Error('Invalid tracker data');state=decoded;if(!Array.isArray(state.counselings))state.counselings=[];if(!Array.isArray(state.absences))state.absences=[];if(!Array.isArray(state.todos))state.todos=[];if(!Array.isArray(state.trainingPlans))state.trainingPlans=[];vaultKey=candidate;vaultSalt=salt;render();notify('Tracker unlocked');return true}catch(err){notify('Unable to unlock. Check the passphrase or backup.');return false}}
 async function createVault(pass){if(typeof crypto==='undefined'||!crypto.subtle){notify('Secure storage requires HTTPS and browser encryption support.');return}
  if(pass.length<12){notify('Use at least 12 characters for your passphrase.');return}
  if(localStorage.getItem(vaultStorageKey)){notify('A protected tracker already exists. Unlock it instead.');return}
@@ -910,6 +911,112 @@ function trainingReadyState(t){
 }
 function trainingReadinessAlerts(){return state.training.filter(t=>t.date&&trainingReadyState(t).showAlert).sort((a,b)=>a.date.localeCompare(b.date))}
 function trainingReadinessRow(t){const z=trainingReadyState(t);return '<div class="list-row readiness-alert-row"><span class="readiness-alert-icon" aria-label="Training not ready">!</span><div class="row-main"><strong>'+e(t.title)+'</strong><span>Training '+fmt(t.date)+' • Prepare by '+fmt(z.due)+' • '+z.complete+'/3 checks complete</span></div><button class="text-button" data-act="training-detail" data-id="'+e(t.id)+'">Prepare ›</button></div>'}
+
+const eightStepNames=[
+ 'Plan the training event','Train and certify leaders','Recon training site',
+ 'Issue OPORD / instructions','Rehearse','Conduct training','Conduct AAR','Retrain as needed'
+];
+const eightStepQuestions=[
+ {id:'facility',label:'Reserved facility or location required?',task:'Confirm facility or training location',owner:'Training lead',before:7,step:3},
+ {id:'instructor',label:'Instructor, cadre or specialist required?',task:'Confirm instructor / cadre availability',owner:'Training lead',before:6,step:2},
+ {id:'equipment',label:'Additional equipment or materials needed?',task:'Obtain and verify needed materials',owner:'Training lead',before:5,step:1},
+ {id:'approval',label:'Coordination or authorization required?',task:'Complete applicable coordination / approval',owner:'Training lead',before:5,step:1},
+ {id:'safety',label:'Specific safety requirements apply?',task:'Verify applicable safety requirements',owner:'Training lead',before:4,step:3},
+ {id:'support',label:'Transportation or outside support required?',task:'Coordinate transportation / support',owner:'Training lead',before:6,step:1}
+];
+function eightPlan(id){return state.trainingPlans.find(p=>p.id===id)}
+function eightPlanTasks(p){
+ const live=state.prepPlans.find(x=>x.id===p.prepPlanId);
+ return p.status==='Active'&&live?live.items:(p.tasks||[]);
+}
+function eightCreateTasks(p){
+ const tasks=eightStepQuestions.filter(q=>p.answers?.[q.id]!=='no').map(q=>({
+  id:'eight-'+q.id,title:p.answers?.[q.id]==='unsure'?'Clarify: '+q.label:q.task,
+  due:workingDaysBefore(p.date||addDay(14),q.before),owner:q.owner,done:false,step:q.step,
+  included:true
+ }));
+ tasks.push(
+ {id:'eight-brief',title:'Issue training instructions / brief participants',due:workingDaysBefore(p.date||addDay(14),2),owner:'Training lead',done:false,step:4,included:true},
+ {id:'eight-rehearse',title:'Rehearse and verify readiness',due:workingDaysBefore(p.date||addDay(14),1),owner:'Training lead',done:false,step:5,included:true}
+ );
+ return tasks;
+}
+function eightPlanDraft(){
+ const p={id:idNew(),status:'Draft',title:'',date:'',time:'09:00',who:'Section personnel',where:'',why:'',lead:'Section NCOIC',
+ answers:Object.fromEntries(eightStepQuestions.map(x=>[x.id,'unsure'])),tasks:[],
+ steps:eightStepNames.map(()=>({status:'Not started',note:''})),trainingId:'',prepPlanId:''};
+ state.trainingPlans.push(p);return p;
+}
+function eightSaveStep(form,p,step){
+ const f=Object.fromEntries(new FormData(form).entries());
+ if(step===1){
+  if(!f.title?.trim()||!f.date){notify('Enter a training title and date.');return false}
+  p.title=f.title.trim().slice(0,160);p.date=f.date;p.time=f.time||'09:00';
+  p.who=f.who||'';p.where=f.where||'';p.why=f.why||'';p.lead=f.lead||'';
+ }else if(step===2){
+  const old=Object.fromEntries((p.tasks||[]).map(x=>[x.id,x]));
+  for(const q of eightStepQuestions)p.answers[q.id]=f['q_'+q.id]||'unsure';
+  p.tasks=eightCreateTasks(p).map(x=>({...x,...(old[x.id]||{}),title:x.title}));
+ }else if(step===3){
+  for(const t of p.tasks||[]){
+   t.included=f['include_'+t.id]==='yes';
+   t.owner=(f['owner_'+t.id]||'Training lead').trim().slice(0,90);
+   t.due=f['due_'+t.id]||t.due;
+   if(t.included&&(!t.due||t.due>p.date)){notify('Choose preparation deadlines on or before the training date.');return false}
+  }
+ }
+ save();return true;
+}
+function eightApprove(p){
+ if(!p.title||!p.date){notify('Finish the training details before approving.');return false}
+ const tasks=(p.tasks||[]).filter(x=>x.included!==false);
+ if(tasks.some(x=>!x.due||x.due>p.date)){notify('Review task deadlines before approving.');return false}
+ const eventId=p.trainingId||idNew(),prepId=p.prepPlanId||idNew();
+ const previous=state.training.find(x=>x.id===eventId)||{};
+ upsert('training',{...previous,id:eventId,planId:p.id,title:p.title,date:p.date,endDate:p.date,time:p.time||'09:00',location:p.where||'',instructor:p.lead||'',duration:previous.duration||60,status:previous.status||'Planned',outcome:previous.outcome||'Not assessed',readyChecks:previous.readyChecks||{}});
+ const existing=state.prepPlans.find(x=>x.id===prepId);
+ upsert('prepPlans',{...(existing||{}),id:prepId,trainingId:eventId,eightPlanId:p.id,title:p.title+' • Preparation',type:'Training',date:p.date,endDate:p.date,soldierId:'',items:tasks.map(x=>{
+  const previousItem=existing?.items?.find(y=>y.id===x.id);
+  return {id:x.id,title:x.title,due:x.due,owner:x.owner,done:previousItem?.done||false,step:x.step};
+ })});
+ p.trainingId=eventId;p.prepPlanId=prepId;p.status='Active';save();return true;
+}
+function eightPlanSummary(p){
+ const tasks=eightPlanTasks(p),done=tasks.filter(x=>x.done).length;
+ const stepDone=(p.steps||[]).filter(x=>x.status==='Completed'||x.status==='Not applicable').length;
+ return '<div class="eight-summary"><strong>'+e(p.title||'Untitled draft')+'</strong><span>'+fmt(p.date||today)+' • '+e(p.status)+' • '+done+'/'+tasks.length+' prep tasks • '+stepDone+'/8 steps closed</span><button class="text-button" data-act="eight-open" data-id="'+e(p.id)+'">Open ›</button></div>';
+}
+function eightPlanDrawer(p){
+ const step=eightStepScreen,taskList=eightPlanTasks(p);
+ const buttons='<div class="action-row eight-actions"><button class="btn" type="button" data-act="eight-back" '+(step===1?'disabled':'')+'>Back</button><button class="btn" type="submit" name="eightAction" value="draft">Save Draft</button><button class="btn primary" type="submit" name="eightAction" value="'+(step===4?'approve':'next')+'">'+(step===4?'Approve Tracker Plan':'Next ›')+'</button></div>';
+ const details=step===1?
+ input('What training or class?','title',p.title)+
+ '<div class="form-two">'+input('When: date','date',p.date||addDay(14),'date')+input('Time','time',p.time||'09:00','time')+'</div>'+
+ input('Who is participating?','who',p.who||'Section personnel')+input('Where?','where',p.where||'','text',false)+
+ input('Why / desired result?','why',p.why||'','text',false)+input('Who is coordinating?','lead',p.lead||'','text',false):
+ step===2?'<p class="small-meta">Answer what applies. Unsure generates a clarification task, not an assumption.</p>'+
+ eightStepQuestions.map(q=>'<div class="field"><label>'+e(q.label)+'</label><select name="q_'+q.id+'"><option value="yes" '+(p.answers[q.id]==='yes'?'selected':'')+'>Yes</option><option value="no" '+(p.answers[q.id]==='no'?'selected':'')+'>No</option><option value="unsure" '+(p.answers[q.id]==='unsure'?'selected':'')+'>Not sure</option></select></div>').join(''):
+ step===3?'<p class="small-meta">Review suggested preparation tasks. Uncheck anything unnecessary, edit owners and deadlines. These are not official Army lead times.</p>'+
+ (p.tasks||[]).map(t=>'<div class="eight-task-editor"><label class="training-checkbox"><input type="checkbox" name="include_'+t.id+'" value="yes" '+(t.included!==false?'checked':'')+'> <strong>'+e(t.title)+'</strong></label><div class="form-two">'+input('Responsible person','owner_'+t.id,t.owner,'text',false)+input('Deadline','due_'+t.id,t.due,'date',false)+'</div><span class="small-meta">Army step '+t.step+'</span></div>').join(''):
+ '<div class="eight-review"><h3>'+e(p.title)+'</h3><p>'+fmt(p.date)+' • '+e(p.time||'')+' • '+e(p.where||'Location TBD')+'</p><p>'+e(p.who||'Participants TBD')+' • Lead '+e(p.lead||'TBD')+'</p><h3>Preparation tasks</h3>'+
+ (p.tasks||[]).filter(x=>x.included!==false).map(x=>'<p>☐ '+e(x.title)+' • '+e(x.owner)+' • '+fmt(x.due)+'</p>').join('')+
+ '<h3>Eight-step progress</h3>'+eightStepNames.map((n,i)=>'<p>'+(i+1)+'. '+e(n)+' • '+e(p.steps?.[i]?.status||'Not started')+'</p>').join('')+
+ '<p class="small-meta">Approving creates one linked training event and preparation checklist. It does not grant command approval or verify readiness.</p></div>';
+ return '<div class="eight-step-progress">STEP '+step+' OF 4 • '+['','Training information','Requirements','Owners & deadlines','Review & approve'][step]+'</div>'+
+ '<form id="eight-form" data-id="'+e(p.id)+'" data-stage="'+step+'">'+details+buttons+'</form>';
+}
+function eightProgressDrawer(p){
+ const tasks=eightPlanTasks(p),completed=tasks.filter(x=>x.done).length;
+ return '<div class="eight-progress-header"><strong>'+e(p.title)+'</strong><p>'+fmt(p.date)+' • '+e(p.time||'')+' • '+completed+'/'+tasks.length+' preparation tasks complete</p></div>'+
+ '<p class="small-meta">This plan is connected to the Section Training calendar and preparation deadlines. Statuses require manual confirmation.</p>'+
+ '<h3>Preparation requirements</h3>'+
+ (tasks.map(t=>'<label class="training-checkbox eight-live-task"><input type="checkbox" data-act="eight-task-toggle" data-id="'+e(p.id)+'" data-item="'+e(t.id)+'" '+(t.done?'checked':'')+'><span>'+e(t.title)+'<small>'+e(t.owner)+' • Due '+fmt(t.due)+'</small></span></label>').join('')||'<p>No preparation tasks selected.</p>')+
+ '<h3>8-Step Training Model</h3>'+
+ eightStepNames.map((name,i)=>'<div class="field eight-status"><label>'+(i+1)+'. '+e(name)+'</label><select data-act="eight-status" data-id="'+e(p.id)+'" data-step="'+i+'">'+['Not started','In progress','Ready','Completed','Not applicable'].map(v=>'<option '+((p.steps[i]?.status||'Not started')===v?'selected':'')+'>'+v+'</option>').join('')+'</select></div>').join('')+
+ '<p class="small-meta">AAR and retraining remain separate steps. Completing tasks does not automatically mark a training step complete.</p>'+
+ '<div class="action-row"><button class="btn" data-act="eight-edit" data-id="'+e(p.id)+'">Edit planning answers</button><button class="btn" data-act="training-detail" data-id="'+e(p.trainingId)+'">Section training entry ›</button></div>';
+}
+
 function training(){
  const block=trainingBlock(),c=trainingConfig(),all=state.training||[];
  const inBlock=all.filter(t=>t.date<=block[2].end&&(t.endDate||t.date)>=block[0].start).sort((a,b)=>a.date.localeCompare(b.date));
