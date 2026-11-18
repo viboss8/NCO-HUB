@@ -1156,7 +1156,7 @@ function eightPlanDrawer(p){
  '</select></div>'+
  '<div class="field eight-participant-other" '+((p.participantScope||((p.who==='Unit'||p.who==='Section')?p.who:'Other'))==='Other'?'':'hidden')+'>'+input('Specify participants','participantOther',p.participantOther||(p.who==='Unit'||p.who==='Section'?'':p.who||''),'text',false)+'</div>'+
  input('Where?','where',p.where||'','text',false)+
- '<div class="field"><label for="f-leadSoldierId">Who is coordinating?</label><select name="leadSoldierId" id="f-leadSoldierId"><option value="">Select a Soldier from your roster</option>'+
+ '<div class="field"><label for="f-leadSoldierId">Who is the lead on this training?</label><select name="leadSoldierId" id="f-leadSoldierId"><option value="">Select a Soldier from your roster</option>'+
  state.soldiers.filter(x=>x.active!==false).map(x=>'<option value="'+e(x.id)+'" '+((p.leadSoldierId||'')===x.id||(!p.leadSoldierId&&p.lead===x.name)?'selected':'')+'>'+e(x.name)+'</option>').join('')+'</select><p class="small-meta">Assign an internal point of contact. Soldiers and leaders listed in your local roster appear here.</p></div>':
  step===2?'<p class="small-meta">Choose Yes, No, or Not sure. Most questions begin at No. Command or office authorization begins at Not sure so it is not silently assumed to be unnecessary.</p>'+
  eightStepQuestions.map(q=>{
