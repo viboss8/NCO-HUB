@@ -918,7 +918,7 @@ function todoRow(t){
  '<button class="text-button" data-act="todo-detail" data-id="'+e(t.id)+'">Edit ›</button></div>';
 }
 function todoHomePanel(){
- const list=todoItems().filter(x=>!x.done),weekly=list.filter(x=>x.weekly);
+ const list=todoItems().filter(x=>!x.done&&x.weekly!==false);
  return '<details class="panel weekly-todo-panel" open><summary>THIS WEEK’S TO-DO LIST <span class="counseling-count">'+list.length+' open</span></summary>'+
  '<div class="panel-body"><p class="small-meta">Review weekly. Items stay here until you check them off, even without a due date.</p>'+
  (list.slice(0,6).map(todoRow).join('')||'<div class="empty">Nothing on your to-do list yet.</div>')+
