@@ -826,7 +826,7 @@ if(!Array.isArray(state.absences))state.absences=[];
 if(!Array.isArray(state.counselings))state.counselings=[];
 if(!Array.isArray(state.todos))state.todos=[];
 if(!Array.isArray(state.trainingPlans))state.trainingPlans=[];
-function prepItems(){return state.prepPlans.flatMap(p=>p.items.map(x=>({...x,planId:p.id,planTitle:p.title,planSoldier:p.soldierId}))).filter(x=>!x.done).sort((a,b)=>a.due.localeCompare(b.due))}
+function prepItems(){return state.prepPlans.flatMap(p=>p.items.map(x=>({...x,planId:p.id,planTitle:(p.demo?'[DEMO] ':'')+p.title,planSoldier:p.soldierId}))).filter(x=>!x.done).sort((a,b)=>a.due.localeCompare(b.due))}
 function prepStatus(x){return x.done?'Completed':x.due<today?'OVERDUE':x.due===today?'DUE TODAY':'Pending'}
 function prepCards(arr){return arr.map(x=>`<div class="list-row"><input class="check-task" type="checkbox" data-act="prep-toggle" data-id="${e(x.planId)}" data-item="${e(x.id)}" ${x.done?'checked':''} aria-label="Complete ${e(x.title)}"><div class="row-main"><strong>${e(x.title)}</strong><span>${e(x.planTitle)} • ${e(x.owner)} • Due ${fmt(x.due)}</span></div>${chip(prepStatus(x))}<button class="text-button" data-act="prep-detail" data-id="${e(x.planId)}">View ›</button></div>`).join('')}
 
@@ -875,7 +875,7 @@ function home(){
  const soldierActions=[
   ...state.requirements.filter(x=>x.completion!=='Verified').map(x=>({title:x.course,subtitle:who(x.soldierId)+' • Training completion not verified',due:x.due,id:x.id,type:'requirement'})),
   ...state.missions.filter(x=>x.stage!==4&&x.owner).map(x=>({title:x.title,subtitle:who(x.owner)+' • Assigned production',due:x.due,id:x.id,type:'mission'})),
-  ...state.prepPlans.flatMap(p=>(p.items||[]).filter(x=>!x.done).map(x=>({title:x.title,subtitle:(p.soldierId?who(p.soldierId)+' • ':'')+'Event preparation',due:x.due,id:p.id,type:'prep'})))
+  ...state.prepPlans.flatMap(p=>(p.items||[]).filter(x=>!x.done).map(x=>({title:x.title,subtitle:(p.demo?'[DEMO] ':'')+(p.soldierId?who(p.soldierId)+' • ':'')+'Event preparation',due:x.due,id:p.id,type:'prep'})))
  ].sort((a,b)=>a.due.localeCompare(b.due));
  const myCards=myActions.slice(0,5).map(t=>'<div class="list-row"><input class="check-task" type="checkbox" data-act="toggle-task" data-id="'+e(t.id)+'" aria-label="Complete follow-up"><div class="row-main"><strong>'+e(t.title)+'</strong><span>'+(t.soldierId?'Follow up with '+e(who(t.soldierId))+' • ':'')+'Due '+fmt(t.due)+(t.due<today?' • OVERDUE':'')+'</span></div><button class="text-button" data-act="task-detail" data-id="'+e(t.id)+'">Edit ›</button></div>').join('');
  const soldierCards=soldierActions.slice(0,5).map(x=>'<div class="list-row"><div class="row-main"><strong>'+e(x.title)+'</strong><span>'+e(x.subtitle)+' • '+fmt(x.due)+(x.due<today?' • OVERDUE':'')+'</span></div><button class="text-button" data-act="'+x.type+'-detail" data-id="'+e(x.id)+'">Open ›</button></div>').join('');
@@ -999,7 +999,7 @@ function trainingReadinessAlerts(){
 }
 function trainingReadinessRow(t){
  const z=trainingReadyState(t);
- return '<div class="list-row readiness-alert-row"><span class="readiness-alert-icon" aria-label="Training needs attention">!</span><div class="row-main"><strong>'+e(t.title)+'</strong><span>'+
+ return '<div class="list-row readiness-alert-row"><span class="readiness-alert-icon" aria-label="Training needs attention">!</span><div class="row-main"><strong>'+(t.demo?'<span class="eight-demo-chip">DEMO</span> ':'')+e(t.title)+'</strong><span>'+
  (!z.notified?'Instructor has not been notified • ':'')+
  'Training '+fmt(t.date)+' • Prepare by '+fmt(z.due)+' • '+z.complete+'/'+z.total+' checks complete</span></div><button class="text-button" data-act="training-detail" data-id="'+e(t.id)+'">Prepare ›</button></div>';
 }
@@ -1213,7 +1213,7 @@ function calendarDayData(d){
  ];
  const due=[
   ...counselingRows().filter(x=>x.due===d).map(x=>({id:x.soldier.id,kind:'counseling',name:'Counseling: '+x.soldier.name,sub:x.cadence+' due • '+(x.soldier.reportsTo?who(x.soldier.reportsTo):'Counselor not assigned'),group:'deadline'})),
-  ...state.training.filter(x=>x.date&&trainingReadyState(x).active&&!trainingReadyState(x).ready&&trainingReadyState(x).due===d).map(x=>({id:x.id,kind:'training',name:'Prepare for '+x.title,sub:'Readiness target • '+trainingReadyState(x).complete+'/'+trainingReadyState(x).total+' checks complete',group:'deadline'})),
+  ...state.training.filter(x=>x.date&&trainingReadyState(x).active&&!trainingReadyState(x).ready&&trainingReadyState(x).due===d).map(x=>({id:x.id,kind:'training',name:(x.demo?'[DEMO] ':'')+'Prepare for '+x.title,sub:'Readiness target • '+trainingReadyState(x).complete+'/'+trainingReadyState(x).total+' checks complete',group:'deadline'})),
   ...state.tasks.filter(x=>!x.done&&x.due===d).map(x=>({id:x.id,kind:'task',name:x.title,sub:x.soldierId?'Follow up • '+who(x.soldierId):'My follow-up',group:'followup'})),
   ...state.requirements.filter(x=>x.completion!=='Verified'&&x.due===d).map(x=>({id:x.id,kind:'requirement',name:x.course,sub:'Training deadline • '+who(x.soldierId),group:'deadline'})),
   ...state.missions.filter(x=>x.stage!==4&&x.due===d).map(x=>({id:x.id,kind:'mission',name:x.title,sub:'Mission deadline'+(x.owner?' • '+who(x.owner):''),group:'deadline'})),
