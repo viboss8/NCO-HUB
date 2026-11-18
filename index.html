@@ -772,6 +772,8 @@ function soldiers(){
   ...state.events.filter(x=>(x.endDate||x.date)>=today&&/training|school|tdy|travel|course/i.test((x.type||'')+' '+(x.title||''))).map(x=>({id:x.id,kind:'event',title:x.title,date:x.date,endDate:x.endDate||x.date,person:(x.soldierIds||[]).length?x.soldierIds.map(who).join(', '):'Section'}))
  ].sort((a,b)=>a.date.localeCompare(b.date));
  const commitmentRows=commitments.slice(0,8).map(x=>'<div class="list-row"><div class="row-main"><strong>'+e(x.title)+'</strong><span>'+e(x.person)+' • '+fmt(x.date)+(x.endDate!==x.date?' to '+fmt(x.endDate):'')+'</span></div><button class="text-button" data-act="'+x.kind+'-detail" data-id="'+e(x.id)+'">Open ›</button></div>').join('');
+ const appointments=state.events.filter(x=>x.type==='Appointment'&&x.date>=today&&(x.soldierIds||[]).some(id=>active.some(y=>y.id===id))).sort((a,b)=>(a.date+' '+(a.time||'')).localeCompare(b.date+' '+(b.time||'')));
+ const appointmentRows=appointments.slice(0,8).map(x=>'<div class="list-row"><div class="row-main"><strong>'+e((x.soldierIds||[]).map(who).join(', '))+' • '+e(x.title)+'</strong><span>'+fmt(x.date)+(x.time?' • '+e(x.time):'')+'</span></div><button class="text-button" data-act="event-detail" data-id="'+e(x.id)+'">Edit ›</button></div>').join('');
  const actions=[
   ...state.requirements.filter(x=>x.completion!=='Verified').map(x=>({id:x.id,kind:'requirement',name:x.course,person:who(x.soldierId),due:x.due})),
   ...state.tasks.filter(x=>!x.done&&x.soldierId).map(x=>({id:x.id,kind:'task',name:x.title,person:who(x.soldierId),due:x.due})),
@@ -784,6 +786,7 @@ function soldiers(){
  '<input id="roster-file" type="file" accept=".json,application/json" hidden>'+
  '<div class="soldier-availability-grid">'+
  '<section class="soldier-overview-panel"><div class="soldier-overview-title"><div><h2>Leave & Pass</h2><small>'+outNow.length+' out now • '+absences.length+' upcoming/current</small></div><button class="btn tiny" data-act="new-absence">+ Add</button></div>'+(availabilityRows||'<div class="empty">No upcoming leave or passes.</div>')+'</section>'+
+ '<section class="soldier-overview-panel"><div class="soldier-overview-title"><div><h2>Upcoming Appointments</h2><small>'+appointments.length+' upcoming Soldier appointment'+(appointments.length===1?'':'s')+'</small></div><button class="btn tiny" data-act="new-event">+ Add</button></div>'+(appointmentRows||'<div class="empty">No upcoming Soldier appointments recorded.</div>')+'</section>'+
  '<section class="soldier-overview-panel"><div class="soldier-overview-title"><div><h2>Schools & TDY</h2><small>Upcoming dated commitments</small></div><button class="btn tiny" data-act="new-prep">+ Add</button></div>'+(commitmentRows||'<div class="empty">No upcoming schools or TDY recorded.</div>')+'</section>'+
  '<section class="soldier-overview-panel"><div class="soldier-overview-title"><div><h2>Soldier Actions</h2><small>'+actions.length+' open requirements, tasks or assignments</small></div><button class="text-button" data-act="goto" data-id="tasks">All tasks ›</button></div>'+(actionRows||'<div class="empty">No outstanding Soldier actions.</div>')+'</section>'+
  '</div><p class="small-meta soldier-overview-footer">Tap any name in the hierarchy above for that Soldier’s complete profile. These summaries use existing local calendar, training and task records.</p></div>';
