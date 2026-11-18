@@ -827,6 +827,12 @@ if(!Array.isArray(state.absences))state.absences=[];
 if(!Array.isArray(state.counselings))state.counselings=[];
 if(!Array.isArray(state.todos))state.todos=[];
 if(!Array.isArray(state.trainingPlans))state.trainingPlans=[];
+function removeEmptyLaunchPlans(){
+ // Older versions stored an untouched plan immediately when the user clicked New.
+ // Remove only these empty, unlinked records; keep all explicitly saved drafts.
+ state.trainingPlans=state.trainingPlans.filter(p=>p.title?.trim()||p.date||p.trainingId||p.prepPlanId);
+}
+removeEmptyLaunchPlans();
 function prepItems(){return state.prepPlans.flatMap(p=>p.items.map(x=>({...x,planId:p.id,planTitle:(p.demo?'[DEMO] ':'')+p.title,planSoldier:p.soldierId}))).filter(x=>!x.done).sort((a,b)=>a.due.localeCompare(b.due))}
 function prepStatus(x){return x.done?'Completed':x.due<today?'OVERDUE':x.due===today?'DUE TODAY':'Pending'}
 function prepCards(arr){return arr.map(x=>`<div class="list-row"><input class="check-task" type="checkbox" data-act="prep-toggle" data-id="${e(x.planId)}" data-item="${e(x.id)}" ${x.done?'checked':''} aria-label="Complete ${e(x.title)}"><div class="row-main"><strong>${e(x.title)}</strong><span>${e(x.planTitle)} • ${e(x.owner)} • Due ${fmt(x.due)}</span></div>${chip(prepStatus(x))}<button class="text-button" data-act="prep-detail" data-id="${e(x.planId)}">View ›</button></div>`).join('')}
@@ -840,7 +846,7 @@ async function deriveVaultKey(pass,salt){const base=await crypto.subtle.importKe
 async function sealedSnapshot(snapshot,keyToUse,saltToUse){const iv=crypto.getRandomValues(new Uint8Array(12)),cipher=await crypto.subtle.encrypt({name:'AES-GCM',iv},keyToUse,enc.encode(snapshot));return JSON.stringify({version:1,kdf:'PBKDF2-SHA256',iterations:250000,salt:b64(saltToUse),iv:b64(iv),ciphertext:b64(new Uint8Array(cipher))})}
 function validVault(v){return v&&v.version===1&&v.kdf==='PBKDF2-SHA256'&&v.iterations===250000&&typeof v.salt==='string'&&typeof v.iv==='string'&&typeof v.ciphertext==='string'}
 function validTracker(v){return v&&['soldiers','events','requirements','training','missions','tasks','prepPlans','met'].every(k=>Array.isArray(v[k]))}
-async function unlockVault(pass){try{const v=JSON.parse(localStorage.getItem(vaultStorageKey)||'null');if(!validVault(v))throw Error('Invalid vault');const salt=bytesFrom64(v.salt),candidate=await deriveVaultKey(pass,salt);const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytesFrom64(v.iv)},candidate,bytesFrom64(v.ciphertext));const decoded=JSON.parse(dec.decode(pt));if(!validTracker(decoded))throw Error('Invalid tracker data');state=decoded;if(!Array.isArray(state.counselings))state.counselings=[];if(!Array.isArray(state.absences))state.absences=[];if(!Array.isArray(state.todos))state.todos=[];if(!Array.isArray(state.trainingPlans))state.trainingPlans=[];vaultKey=candidate;vaultSalt=salt;render();notify('Tracker unlocked');return true}catch(err){notify('Unable to unlock. Check the passphrase or backup.');return false}}
+async function unlockVault(pass){try{const v=JSON.parse(localStorage.getItem(vaultStorageKey)||'null');if(!validVault(v))throw Error('Invalid vault');const salt=bytesFrom64(v.salt),candidate=await deriveVaultKey(pass,salt);const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytesFrom64(v.iv)},candidate,bytesFrom64(v.ciphertext));const decoded=JSON.parse(dec.decode(pt));if(!validTracker(decoded))throw Error('Invalid tracker data');state=decoded;if(!Array.isArray(state.counselings))state.counselings=[];if(!Array.isArray(state.absences))state.absences=[];if(!Array.isArray(state.todos))state.todos=[];if(!Array.isArray(state.trainingPlans))state.trainingPlans=[];removeEmptyLaunchPlans();vaultKey=candidate;vaultSalt=salt;render();notify('Tracker unlocked');return true}catch(err){notify('Unable to unlock. Check the passphrase or backup.');return false}}
 async function createVault(pass){if(typeof crypto==='undefined'||!crypto.subtle){notify('Secure storage requires HTTPS and browser encryption support.');return}
  if(pass.length<12){notify('Use at least 12 characters for your passphrase.');return}
  if(localStorage.getItem(vaultStorageKey)){notify('A protected tracker already exists. Unlock it instead.');return}
