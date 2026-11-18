@@ -1149,13 +1149,32 @@ function eightPlanDrawer(p){
  input('Who is participating?','who',p.who||'Section personnel')+input('Where?','where',p.where||'','text',false)+
  '<div class="field"><label for="f-leadSoldierId">Who is coordinating?</label><select name="leadSoldierId" id="f-leadSoldierId"><option value="">Select a Soldier from your roster</option>'+
  state.soldiers.filter(x=>x.active!==false).map(x=>'<option value="'+e(x.id)+'" '+((p.leadSoldierId||'')===x.id||(!p.leadSoldierId&&p.lead===x.name)?'selected':'')+'>'+e(x.name)+'</option>').join('')+'</select><p class="small-meta">Assign an internal point of contact. Soldiers and leaders listed in your local roster appear here.</p></div>':
- step===2?'<p class="small-meta">Answer what applies. Unsure generates a clarification task, not an assumption.</p>'+
- eightStepQuestions.map(q=>'<div class="field"><label>'+e(q.label)+'</label><select name="q_'+q.id+'" '+(q.id==='safety'?'data-eight-safety="yes"':q.id==='facility'||q.id==='instructor'?'data-eight-followup="'+q.id+'"':'')+'><option value="yes" '+(p.answers[q.id]==='yes'?'selected':'')+'>Yes</option><option value="no" '+(p.answers[q.id]==='no'?'selected':'')+'>No</option><option value="unsure" '+(p.answers[q.id]==='unsure'?'selected':'')+'>Not sure</option></select></div>'+
- ((q.id==='facility'||q.id==='instructor')?'<div class="eight-dependent-field" data-for="'+q.id+'" '+(p.answers[q.id]==='yes'?'':'hidden')+'>'+[
- {suffix:'Request',label:q.id==='facility'?'Has the facility / training location request been submitted?':'Have you contacted the instructor / outside source (call or email)?'},
- {suffix:'Confirmed',label:q.id==='facility'?'Has the facility / training location reservation been confirmed?':'Has the instructor / outside source confirmed availability?'}
- ].map(sub=>'<div class="field"><label>'+e(sub.label)+'</label><select name="q_'+q.id+sub.suffix+'" '+(p.answers[q.id]==='yes'?'':'disabled')+'><option value="unsure" '+(!['yes','no'].includes(p.answers[q.id+sub.suffix])?'selected':'')+'>Not sure yet</option><option value="yes" '+(p.answers[q.id+sub.suffix]==='yes'?'selected':'')+'>Yes</option><option value="no" '+(p.answers[q.id+sub.suffix]==='no'?'selected':'')+'>No</option></select></div>').join('')+'<p class="small-meta">Sending the request and receiving confirmation are tracked separately.</p></div>':'')).join('')+
- '<div class="field eight-draw-followup" '+(p.answers.safety==='yes'?'':'hidden')+'><label>Is the DRAW complete? (Deliberate Risk Assessment Worksheet)</label><select name="q_draw" '+(p.answers.safety==='yes'?'':'disabled')+'><option value="yes" '+(p.answers.draw==='yes'?'selected':'')+'>Yes, completed</option><option value="no" '+(p.answers.draw==='no'?'selected':'')+'>No, still needs to be completed</option><option value="unsure" '+(!['yes','no'].includes(p.answers.draw)?'selected':'')+'>Not sure</option></select><p class="small-meta">If not complete or uncertain, the planner will propose a DRAW preparation task. Verify your unit requirements and approval process.</p></div>':
+ step===2?'<p class="small-meta">Choose Yes, No, or Not sure. Most questions begin at No. Command or office authorization begins at Not sure so it is not silently assumed to be unnecessary.</p>'+
+ eightStepQuestions.map(q=>{
+  const current=eightCurrentAnswer(p,q.id);
+  const control='<div class="field"><label>'+e(q.label)+'</label>'+
+   '<select name="q_'+q.id+'" '+(q.id==='safety'?'data-eight-safety="yes"':q.id==='facility'||q.id==='instructor'?'data-eight-followup="'+q.id+'"':'')+'>'+
+   '<option value="no" '+(current==='no'?'selected':'')+'>No</option>'+
+   '<option value="yes" '+(current==='yes'?'selected':'')+'>Yes</option>'+
+   '<option value="unsure" '+(current==='unsure'?'selected':'')+'>Not sure</option></select>'+
+   (q.help?'<p class="small-meta">'+e(q.help)+'</p>':'')+'</div>';
+  const followup=(q.id==='facility'||q.id==='instructor')?
+    '<div class="eight-dependent-field" data-for="'+q.id+'" '+(current==='yes'?'':'hidden')+'>'+
+    [{suffix:'Request',label:q.id==='facility'?'Has the facility / training location request been submitted?':'Have you contacted the instructor / outside source (call or email)?'},
+     {suffix:'Confirmed',label:q.id==='facility'?'Has the facility / training location reservation been confirmed?':'Has the instructor / outside source confirmed availability?'}]
+    .map(sub=>{const answer=p.answers?.[q.id+sub.suffix]||'no';return '<div class="field"><label>'+e(sub.label)+'</label><select name="q_'+q.id+sub.suffix+'" '+(current==='yes'?'':'disabled')+'>'+
+      '<option value="no" '+(answer==='no'||!['yes','unsure'].includes(answer)?'selected':'')+'>No</option>'+
+      '<option value="yes" '+(answer==='yes'?'selected':'')+'>Yes</option>'+
+      '<option value="unsure" '+(answer==='unsure'?'selected':'')+'>Not sure</option></select></div>'}).join('')+
+    '<p class="small-meta">A submitted request does not mean the reservation or instructor is confirmed.</p></div>':'';
+  const draw=q.id==='safety'?'<div class="field eight-draw-followup" '+(current==='yes'?'':'hidden')+'>'+
+   '<label>Is the DRAW complete? (Deliberate Risk Assessment Worksheet)</label><select name="q_draw" '+(current==='yes'?'':'disabled')+'>'+
+   '<option value="no" '+(!['yes','unsure'].includes(p.answers?.draw)?'selected':'')+'>No, still needs to be completed</option>'+
+   '<option value="yes" '+(p.answers?.draw==='yes'?'selected':'')+'>Yes, completed</option>'+
+   '<option value="unsure" '+(p.answers?.draw==='unsure'?'selected':'')+'>Not sure</option></select>'+
+   '<p class="small-meta">Incomplete or uncertain DRAW status creates a suggested task. Follow your unit risk assessment and approval requirements.</p></div>':'';
+  return control+followup+draw;
+ }).join(''):
  step===3?'<p class="small-meta">Review suggested preparation tasks. Uncheck anything unnecessary, edit owners and deadlines. These are not official Army lead times.</p>'+
  (p.tasks||[]).map(t=>'<div class="eight-task-editor">'+(t.custom?input('Custom requirement','title_'+t.id,t.title):'')+'<label class="training-checkbox"><input type="checkbox" name="include_'+t.id+'" value="yes" '+(t.included!==false?'checked':'')+'> <strong>'+e(t.title)+'</strong></label><div class="form-two">'+input('Responsible person','owner_'+t.id,t.owner,'text',false)+input('Deadline','due_'+t.id,t.due,'date',false)+'</div><span class="small-meta">Army step '+t.step+'</span></div>').join('')+'<button class="btn tiny" type="button" data-act="eight-add-task" data-id="'+e(p.id)+'">+ Add custom requirement</button>':
  '<div class="eight-review"><h3>'+e(p.title)+'</h3><p>'+fmt(p.date)+' • '+e(p.time||'')+' • '+e(p.where||'Location TBD')+'</p><p>'+e(p.who||'Participants TBD')+' • Lead '+e(p.lead||'TBD')+'</p><h3>Preparation tasks</h3>'+
