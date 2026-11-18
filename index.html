@@ -896,7 +896,7 @@ function training(){
  const upcoming=all.filter(t=>(t.endDate||t.date)>=today&&t.status!=='Canceled').length;
  const openPrep=prepItems();
  const byWeek=block.map(w=>'<div class="training-week"><div class="training-week-heading"><strong>'+e(w.label)+'</strong><span>'+fmt(w.start,{month:'short',day:'numeric'})+' to '+fmt(w.end,{month:'short',day:'numeric'})+'</span></div>'+
-  (inBlock.filter(t=>t.date<=w.end&&(t.endDate||t.date)>=w.start).map(t=>'<button class="training-event-row" data-act="training-detail" data-id="'+e(t.id)+'"><span class="training-event-date">'+fmt(t.date,{weekday:'short',day:'numeric'})+'</span><span class="training-event-text"><strong>'+e(t.title)+'</strong><small>'+e(t.trainingType||'Section training')+' • '+e(t.status||'Planned')+' • '+e(t.instructor||'Instructor not assigned')+'</small></span><span aria-hidden="true">›</span></button>').join('')||'<div class="training-week-empty training-empty-add"><span>No section training scheduled</span><button type="button" class="training-week-add" data-act="training-week-add" data-id="'+e(w.start)+'" aria-label="Add section training to '+e(w.label)+'" title="Add training to '+e(w.label)+'">+</button></div>')+'</div>').join('');
+  (inBlock.filter(t=>t.date<=w.end&&(t.endDate||t.date)>=w.start).map(t=>'<button class="training-event-row" data-act="training-detail" data-id="'+e(t.id)+'"><span class="training-event-date">'+fmt(t.date,{weekday:'short',day:'numeric'})+'</span><span class="training-event-text"><strong>'+e(t.title)+'</strong><small>'+(t.time?e(t.time)+' • ':'')+e(t.status||'Planned')+' • '+e(t.instructorId?who(t.instructorId):t.outsideInstructor||t.instructor||'Instructor not assigned')+'</small></span><span aria-hidden="true">›</span></button>').join('')||'<div class="training-week-empty training-empty-add"><span>No section training scheduled</span><button type="button" class="training-week-add" data-act="training-week-add" data-id="'+e(w.start)+'" aria-label="Add section training to '+e(w.label)+'" title="Add training to '+e(w.label)+'">+</button></div>')+'</div>').join('');
  const reqTable='<div class="panel table-wrap"><table class="data-table"><thead><tr><th>Course / requirement</th><th>Soldier</th><th>Enrollment</th><th>Attendance</th><th>Completion</th><th>Deadline</th><th></th></tr></thead><tbody>'+rows.map(r=>'<tr><td><strong>'+e(r.course)+'</strong></td><td>'+e(who(r.soldierId))+'</td><td>'+chip(r.enrollment)+'</td><td>'+chip(r.attendance)+'</td><td>'+chip(r.completion)+'</td><td>'+fmt(r.due)+'</td><td><button class="text-button" data-act="requirement-detail" data-id="'+e(r.id)+'">Edit ›</button></td></tr>').join('')+'</tbody></table>'+(rows.length?'':'<div class="empty">No matching requirements.</div>')+'</div>';
  return '<div class="training-workspace">'+heading('TRAINING MANAGEMENT','Training & Planning','Section classes, Soldier requirements, and preparation in one place.')+
  '<div class="training-toolbar"><button class="btn primary" data-act="new-training">+ Add Section Training</button><button class="btn" data-act="new-prep">Guided Training Setup</button><button class="btn" data-act="training-config">FY / T-week settings</button></div>'+
@@ -946,7 +946,7 @@ function scheduleLabel(x,d){return d===x.date?'Starts':d===(x.endDate||x.date)?'
 function calendarDayData(d){
  const passive=[
   ...state.events.filter(x=>spansDate(x,d)).map(x=>({id:x.id,kind:'event',name:((x.soldierIds||[]).length?x.soldierIds.map(who).join(', ')+': ':'')+x.title,start:x.date,end:x.endDate||x.date})),
-  ...state.training.filter(x=>spansDate(x,d)).map(x=>({id:x.id,kind:'training',name:x.title,start:x.date,end:x.endDate||x.date})),
+  ...state.training.filter(x=>spansDate(x,d)).map(x=>({id:x.id,kind:'training',name:(x.time?x.time+' • ':'')+x.title,start:x.date,end:x.endDate||x.date})),
   ...state.prepPlans.filter(x=>spansDate(x,d)).map(x=>({id:x.id,kind:'prep',name:(x.soldierId?who(x.soldierId)+': ':'')+x.title,start:x.date,end:x.endDate||x.date})),
   ...(state.absences||[]).filter(x=>spansDate(x,d)).map(x=>({id:x.id,kind:'absence',name:absenceLabel(x),start:x.date,end:x.endDate}))
  ];
@@ -1058,26 +1058,21 @@ else if(kind==='training'){
  body='<div class="notice">FY'+e(String(c.fiscalYear))+' • Week is calculated from the event date. Planned does not mean completed.</div>'+
  '<form id="entity-form" data-kind="training" data-id="'+e(id||'')+'">'+
  input('Training title','title',t?.title||'')+
- input('Training date','date',t?.date||trainingDatePreset||addDay(1),'date')+
+ '<div class="form-two">'+input('Training date','date',t?.date||trainingDatePreset||addDay(1),'date')+input('Start time','time',t?.time||'09:00','time')+'</div>'+
  (t?.endDate&&t.endDate!==t.date?'<details class="accordion"><summary>Existing multi-day event</summary>'+input('End date','endDate',t.endDate,'date')+'</details>':'')+
- '<details class="accordion" open><summary>Training details</summary>'+
- dropdown('Category','category',['General','Mandatory Army training','MOS-specific','Professional development','Military school','Other'],t?.category||'General')+
- dropdown('Type','trainingType',['Collective','Individual','Section','Other'],t?.trainingType||'Individual')+
- input('Instructor / trainer','instructor',t?.instructor||'','text',false)+
- input('Training objective','objective',t?.objective||'','text',false)+
- input('Duration (minutes)','duration',String(t?.duration||60),'number',false)+
- input('Supporting task number (if applicable)','task',t?.task||'','text',false)+
- input('Reference / training link','reference',t?.reference||'','url',false)+
- input('Equipment / preparation','equipment',t?.equipment||'','text',false)+
- input('Location (generic)','location',t?.location||'','text',false)+'</details>'+
- '<details class="accordion" open><summary>Participants</summary>'+
- '<label class="training-checkbox"><input type="checkbox" name="entireSection" value="yes" '+(t?.entireSection?'checked':'')+'> Entire section (current active roster at save)</label>'+
- '<div class="training-participants">'+state.soldiers.filter(x=>x.active!==false).map(x=>'<label class="training-checkbox"><input type="checkbox" name="participantIds" value="'+e(x.id)+'" '+(selected.includes(x.id)?'checked':'')+'> '+e(x.name)+'</label>').join('')+'</div><p class="small-meta">Choose individuals or entire section. Attendance remains separate from scheduling.</p></details>'+
- '<details class="accordion" open><summary>Execution and results</summary>'+
+ '<div class="field"><label>Instructor / trainer (linked Soldier)</label><select name="instructorId"><option value="">Outside instructor / not assigned</option>'+
+ state.soldiers.filter(x=>x.active!==false).map(x=>'<option value="'+e(x.id)+'" '+(t?.instructorId===x.id?'selected':'')+'>'+e(x.name)+'</option>').join('')+'</select></div>'+
+ input('Outside instructor / organization (if applicable)','outsideInstructor',t?.outsideInstructor||(!t?.instructorId?t?.instructor||'':''),'text',false)+
+ '<div class="form-two">'+input('Duration (minutes)','duration',String(t?.duration||60),'number',false)+input('Location (generic)','location',t?.location||'','text',false)+'</div>'+
+ input('Equipment / preparation (optional)','equipment',t?.equipment||'','text',false)+
+ '<details class="accordion"><summary>Participants (optional)</summary>'+
+ '<label class="training-checkbox"><input type="checkbox" name="entireSection" value="yes" '+(t?.entireSection?'checked':'')+'> Entire section (current roster)</label>'+
+ '<div class="training-participants">'+state.soldiers.filter(x=>x.active!==false).map(x=>'<label class="training-checkbox"><input type="checkbox" name="participantIds" value="'+e(x.id)+'" '+(selected.includes(x.id)?'checked':'')+'> '+e(x.name)+'</label>').join('')+'</div><p class="small-meta">Scheduling participants does not confirm attendance.</p></details>'+
  dropdown('Event status','status',['Planned','Scheduled','Conducted','Canceled'],t?.status||'Planned')+
+ '<details class="accordion" '+(t?.status==='Conducted'?'open':'')+'><summary>AAR / Results</summary>'+
  dropdown('Observed outcome','outcome',['Not assessed','Practice observed','Demonstrated proficiency','Needs retraining'],t?.outcome||'Not assessed')+
- '<div class="field"><label>Results / notes</label><textarea name="notes">'+e(t?.notes||'')+'</textarea></div></details>'+
- formButtons()+'</form>'+
+ '<div class="field"><label>AAR notes (optional)</label><textarea name="notes">'+e(t?.notes||'')+'</textarea></div></details>'+
+  formButtons()+'</form>'+
  (t?'<div class="training-detail-prep"><h3>Before the class</h3><button class="btn tiny" data-act="training-prep-add" data-id="'+e(t.id)+'">+ Add preparation task</button>'+
  (state.prepPlans.filter(p=>p.trainingId===t.id).flatMap(p=>p.items.map(item=>'<div class="list-row"><input type="checkbox" class="check-task" data-act="prep-toggle" data-id="'+e(p.id)+'" data-item="'+e(item.id)+'" '+(item.done?'checked':'')+'><div class="row-main"><strong>'+e(item.title)+'</strong><span>Due '+fmt(item.due)+' • '+e(item.owner)+'</span></div><button class="text-button" data-act="training-prep-remove" data-id="'+e(p.id)+'" data-item="'+e(item.id)+'">Remove</button></div>')).join('')||'<p class="small-meta">No linked preparation tasks yet.</p>')+
  '<div class="action-row"><button class="btn tiny" data-act="new-task">+ Follow-up in My Tasks</button></div></div><button class="btn training-delete" data-act="training-delete" data-id="'+e(t.id)+'">Delete this event</button>':'')+
@@ -1126,9 +1121,12 @@ return `<div class="detail-overlay" id="overlay"><aside class="drawer" role="dia
 function open(kind,id){drawer=[kind,id||''];render();document.querySelector('.drawer')?.focus()}
 function idNew(){return 'demo-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6)}
 function formSave(form){let f=Object.fromEntries(new FormData(form).entries()),kind=form.dataset.kind,id=form.dataset.id; if(kind==='soldier-edit'){let rank=(f.rank||'PV2').trim(),last=(f.lastName||'').trim().replace(/\s+/g,' ').slice(0,60),first=(f.firstName||'').trim().replace(/\s+/g,' ').slice(0,60);if(!last){notify('Enter a last name.');return}upsert('soldiers',{id:id||idNew(),name:rank+' '+last,rank,lastName:last,firstName:first,initials:last.slice(0,1).toUpperCase(),role:(f.role||'').trim(),reportsTo:sol(id)?.reportsTo||null,goals:sol(id)?.goals||[]});}else if(kind==='prep-edit'){let p=state.prepPlans.find(x=>x.id===id);if(!p)return;if(!f.date||!f.endDate||f.endDate<f.date){notify('End date must be on or after start date');return;}p.title=(f.title||p.title).trim();p.date=f.date;p.endDate=f.endDate;}else if(kind==='goals'){let soldier=sol(id);if(soldier) soldier.goals=(f.goals||'').split(/\r?\n/).map(v=>v.trim()).filter(Boolean).slice(0,12)}else if(kind==='requirement'){if(f.completion==='Verified'&&(!f.source.trim()||f.attendance!=='Verified')){notify('Verify attendance and add a permitted verification reference first.');return}let entry={id:id||idNew(),soldierId:f.soldierId,course:f.course,due:f.due,enrollment:f.enrollment,attendance:f.attendance,completion:f.completion,source:f.source};upsert('requirements',entry)}else if(kind==='todo'){if(!(f.title||'').trim()){notify('Enter a to-do.');return}let old=(state.todos||[]).find(x=>x.id===id)||{};upsert('todos',{...old,id:id||idNew(),title:f.title.trim().slice(0,180),soldierId:f.soldierId||'',due:f.due||'',weekly:f.weekly!=='no',done:old.done||false,note:(f.note||'').trim().slice(0,300),createdAt:old.createdAt||today})}else if(kind==='task'){upsert('tasks',{id:id||idNew(),title:f.title,soldierId:f.soldierId,due:f.due,done:f.done==='Completed',note:f.note,source:'manual'})}else if(kind==='event'){const eventEnd=f.type==='Appointment'?f.date:(f.endDate||f.date);if(eventEnd<f.date){notify('End date cannot be before start date');return}upsert('events',{id:id||idNew(),title:f.title,date:f.date,endDate:eventEnd,time:f.time,type:f.type,detail:f.detail,soldierIds:f.soldierId?[f.soldierId]:[],status:'Scheduled'})}else if(kind==='counseling'){if(!f.soldierId||!sol(f.soldierId)||!/^\d{4}-\d{2}-\d{2}$/.test(f.date||'')||f.date>today){notify('Choose a Soldier and a completed date not in the future.');return}upsert('counselings',{id:id||idNew(),soldierId:f.soldierId,date:f.date,counselorId:f.counselorId||''})}else if(kind==='mission'){upsert('missions',{id:id||idNew(),title:f.title,owner:f.soldierId,due:f.due,deliverable:f.deliverable,stage:['Assigned','Planning','In Production','In Review','Completed'].indexOf(f.stage),detail:f.detail})}else if(kind==='training'){
- const endDate=f.endDate||f.date;if(!f.title?.trim()||!f.date||endDate<f.date){notify('Enter a title and valid training date.');return}
+ const endDate=f.endDate||f.date;if(!f.title?.trim()||!f.date||!f.time||endDate<f.date){notify('Enter a training title, date and time.');return}
  const old=state.training.find(x=>x.id===id)||{},selected=Array.from(new Set(form.querySelector('[name="entireSection"]')?.checked?state.soldiers.filter(x=>x.active!==false).map(x=>x.id):new FormData(form).getAll('participantIds')));
- upsert('training',{...old,id:id||idNew(),title:f.title.trim(),date:f.date,endDate,category:f.category,trainingType:f.trainingType,instructor:f.instructor||'',objective:f.objective||'',duration:Number(f.duration)||60,task:f.task||'',reference:f.reference||'',equipment:f.equipment||'',location:f.location||'',notes:f.notes||'',status:f.status,outcome:f.outcome,participants:selected,entireSection:f.entireSection==='yes'});
+ const instructorId=f.instructorId||'',outsideInstructor=(f.outsideInstructor||'').trim();
+ upsert('training',{...old,id:id||idNew(),title:f.title.trim(),date:f.date,endDate,time:f.time,
+ instructorId,outsideInstructor,instructor:instructorId?who(instructorId):outsideInstructor,
+ duration:Number(f.duration)||60,equipment:f.equipment||'',location:f.location||'',notes:f.notes||'',status:f.status||'Planned',outcome:f.outcome||'Not assessed',participants:selected,entireSection:f.entireSection==='yes'});
  for(const p of state.prepPlans.filter(p=>p.trainingId===(id||''))){p.date=f.date;p.endDate=endDate;p.title=f.title.trim()+' • Preparation';}
 }
 else if(kind==='training-prep'){
