@@ -694,6 +694,9 @@ body:has(.soldiers-workspace) .main .content{padding-bottom:90px}
 .eight-summary strong{color:#1b3c2a;font-size:13px}.eight-summary span{flex:1 1 180px;color:#405348;font-size:12px}
 .eight-step-progress{font-size:12px;font-weight:800;color:#1e5639;background:#eaf1e8;padding:12px;border-radius:7px;margin-bottom:18px}
 .eight-task-editor{border:1px solid #bfcfc0;border-radius:10px;padding:10px;margin:11px 0;background:#fbfcfa}.eight-task-editor .form-two{margin-top:8px}
+.eight-task-editor .form-two{grid-template-columns:minmax(0,1fr) minmax(0,1.35fr)}
+.eight-task-editor .deadline-recommendation{font-size:10px;font-weight:600;white-space:nowrap}
+@media(max-width:460px){.eight-task-editor .form-two{grid-template-columns:minmax(0,1fr)}}
 .eight-task-editor .field{margin-bottom:8px}.eight-review p,.eight-progress-header p{color:#395244;font-size:12px;line-height:1.6}
 .eight-review h3,.drawer h3{color:#203e2d}.eight-actions{display:flex;flex-wrap:wrap;margin-top:20px}
 .eight-live-task{padding:9px;border-bottom:1px solid #d6e0d6;align-items:center}.eight-live-task span{display:flex;flex-direction:column;color:#203b2e}.eight-live-task small{font-size:11px;color:#465d4f}
@@ -1244,7 +1247,7 @@ function eightPlanDrawer(p){
   return control+followup+draw;
  }).join(''):
  step===3?'<p class="small-meta">Review suggested preparation tasks. Uncheck anything unnecessary, edit owners and deadlines. These are not official Army lead times.</p>'+
- (p.tasks||[]).map(t=>'<div class="eight-task-editor">'+(t.custom?input('Custom requirement','title_'+t.id,t.title):'')+'<label class="training-checkbox"><input type="checkbox" name="include_'+t.id+'" value="yes" '+(t.included!==false?'checked':'')+'> <strong>'+e(t.title)+'</strong></label><div class="form-two">'+input('Responsible person','owner_'+t.id,t.owner,'text',false)+input('Deadline'+(eightLeadDays(t)?' (recommended '+eightLeadDays(t)+' working day'+(eightLeadDays(t)===1?'':'s')+' before)':''),'due_'+t.id,t.due,'date',false)+eightDeadlineNote(t,p)+'</div><span class="small-meta">Army step '+t.step+'</span></div>').join('')+'<button class="btn tiny" type="button" data-act="eight-add-task" data-id="'+e(p.id)+'">+ Add custom requirement</button>':
+ (p.tasks||[]).map(t=>'<div class="eight-task-editor">'+(t.custom?input('Custom requirement','title_'+t.id,t.title):'')+'<label class="training-checkbox"><input type="checkbox" name="include_'+t.id+'" value="yes" '+(t.included!==false?'checked':'')+'> <strong>'+e(t.title)+'</strong></label><div class="form-two">'+input('Responsible person','owner_'+t.id,t.owner,'text',false)+input('Deadline'+(eightLeadDays(t)?' <span class="deadline-recommendation">(recommended '+eightLeadDays(t)+' workday'+(eightLeadDays(t)===1?'':'s')+' before)</span>':''),'due_'+t.id,t.due,'date',false)+eightDeadlineNote(t,p)+'</div><span class="small-meta">Army step '+t.step+'</span></div>').join('')+'<button class="btn tiny" type="button" data-act="eight-add-task" data-id="'+e(p.id)+'">+ Add custom requirement</button>':
  '<div class="eight-review"><h3>'+e(p.title)+'</h3><p>'+fmt(p.date)+' • '+e(p.time||'')+' • '+e(p.where||'Location TBD')+'</p><p>'+e(p.who||'Participants TBD')+' • Lead '+e(p.lead||'TBD')+'</p><h3>Preparation tasks</h3>'+
  (p.tasks||[]).filter(x=>x.included!==false).map(x=>'<p>☐ '+e(x.title)+' • '+e(x.owner)+' • '+fmt(x.due)+'</p>').join('')+
  '<h3>Eight-step progress</h3>'+eightStepNames.map((n,i)=>'<p>'+(i+1)+'. '+e(n)+' • '+e(p.steps?.[i]?.status||'Not started')+'</p>').join('')+
