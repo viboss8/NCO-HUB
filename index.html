@@ -924,8 +924,28 @@ function currentSoldierStatus(soldier){
  if(requirement)return {label:'Training',detail:requirement.course,type:'requirement',id:requirement.id};
  return {label:'Nothing assigned today',detail:'Open for tasking',type:'available'};
 }
+function activeSoldiersInCommandOrder(){
+ const active=state.soldiers.filter(soldier=>soldier.active!==false);
+ const byId=new Map(active.map(soldier=>[soldier.id,soldier]));
+ const ranks='COL LTC MAJ CPT 1LT 2LT CSM SGM 1SG MSG SFC SSG SGT CPL SPC PFC PV2 PV1 PVT'.split(' ');
+ function depth(soldier){
+  const visited=new Set([soldier.id]);
+  let supervisor=byId.get(soldier.reportsTo);
+  while(supervisor&&!visited.has(supervisor.id)){
+   visited.add(supervisor.id);
+   supervisor=byId.get(supervisor.reportsTo);
+  }
+  return visited.size;
+ }
+ function seniority(soldier){
+  const rank=(soldier.rank||soldier.name||'').trim().toUpperCase().split(/\s+/)[0];
+  const index=ranks.indexOf(rank==='CAPT'||rank==='CAPTAIN'?'CPT':rank);
+  return index<0?ranks.length:index;
+ }
+ return active.sort((a,b)=>depth(a)-depth(b)||seniority(a)-seniority(b)||a.name.localeCompare(b.name));
+}
 function soldierStatusBoard(){
- const active=state.soldiers.filter(s=>s.active!==false&&!/^(?:CPT|CAPT|CAPTAIN)\b/i.test((s.rank||s.name||'').trim()));
+ const active=activeSoldiersInCommandOrder().filter(s=>!/^(?:CPT|CAPT|CAPTAIN)\b/i.test((s.rank||s.name||'').trim()));
  if(!active.length)return '<div class="empty">Import your roster to see each Soldier’s status.</div>';
  return '<div class="soldier-status-table"><div class="soldier-status-heading"><strong>Soldier</strong><strong>What they’re doing today</strong><span></span></div>'+
  active.map(s=>{
@@ -974,7 +994,7 @@ function home(){
   '<div class="daily-checkin"><strong>Today’s check-in</strong><span>1. What do my Soldiers need to complete?</span><span>2. What do I need to do or provide?</span><span>3. If we have room, what will improve readiness?</span></div>'+
   '<div class="banner">Browser-local workspace. Do not enter identifiable personnel schedules or sensitive duty information until approved for this environment.</div>'+
   (!state.soldiers.some(s=>s.active!==false)?'<div class="setup-strip"><strong>Set up your section</strong><p>Your roster has not been imported into this browser. Go to Soldiers and select Import Roster to restore the hierarchy. This does not happen automatically from the chat.</p><button class="btn primary" data-act="goto" data-id="soldiers">Open Soldiers and Import Roster</button></div>':'')+
-  '<div class="metrics">'+metric('Today',todayEvents.length,'Calendar commitments','calendar','schedule')+metric('My Actions',myActions.length,'Open follow-ups and prep','tasks','my-actions')+metric('Soldier Actions',soldierActions.length,'Assigned work and requirements','users','soldier-actions')+metric('Active Soldiers',state.soldiers.filter(x=>x.active!==false).length,'Profiles on this device','users','soldiers')+'</div>'+
+  '<div class="metrics">'+metric('Today',todayEvents.length,'Calendar commitments','calendar','schedule')+metric('My Actions',myActions.length,'Open follow-ups and prep','tasks','my-actions')+metric('Soldier Actions',soldierActions.length,'Assigned work and requirements','users','soldier-actions')+metric('Active Soldiers',activeSoldiersInCommandOrder().length,'Profiles on this device','users','soldiers')+'</div>'+
   '<div class="home-action-grid">'+
    panel('WHAT ARE MY SOLDIERS DOING TODAY?',soldierCards,'<button class="text-button" data-act="goto" data-id="soldiers">Soldier profiles ›</button>')+
    panel('YOUR PRIORITIES TODAY',myCards||'<div class="empty">No personal follow-ups or preparation tasks are recorded. Use open time to look ahead.</div>'+userSuggestion,'<button class="text-button" data-act="goto" data-id="tasks">All my tasks ›</button>')+
@@ -983,7 +1003,7 @@ function home(){
   '<div class="home-schedule"><details class="panel counseling-home-details"><summary>COUNSELING REMINDERS <span class="counseling-count">'+counselAlerts.length+' attention</span></summary><div class="panel-body">'+(counselingPanelRows(counselAlerts.slice(0,6))||'<div class="empty">No counseling reminders need attention.</div>')+'<button class="text-button" data-act="goto" data-id="soldiers">All counseling ›</button></div></details>'+panel('SOLDIER LEAVE & PASSES'+(outNow.length?' • '+outNow.length+' OUT NOW':''),absCards||'<div class="empty">No upcoming Leave or Pass records.</div>','<button class="text-button" data-act="new-absence">+ Add Leave / Pass</button>')+panel("TODAY'S SCHEDULE",todayCards||'<div class="empty">Nothing scheduled for today.</div>','<button class="text-button" data-act="calendar">Full calendar ›</button>')+'</div>';
 }
 function orgChart(){
- const active=state.soldiers.filter(x=>x.active!==false),byId=new Map(active.map(x=>[x.id,x]));
+ const active=activeSoldiersInCommandOrder(),byId=new Map(active.map(x=>[x.id,x]));
  const roots=active.filter(x=>!x.reportsTo||!byId.has(x.reportsTo)),levels=[],seen=new Set();
  const queue=roots.map(x=>({person:x,depth:0}));
  while(queue.length){const {person,depth}=queue.shift();if(seen.has(person.id)||depth>15)continue;seen.add(person.id);(levels[depth]||(levels[depth]=[])).push(person);for(const child of active.filter(x=>x.reportsTo===person.id))queue.push({person:child,depth:depth+1})}
@@ -1002,7 +1022,7 @@ function counselingStatus(s){
  return {soldier:s,last,cadence,due,days,status:!last?'No date recorded':days<0?'Overdue':days<=14?'Due soon':cadence==='Monthly'&&last.date.slice(0,7)===today.slice(0,7)?'Completed this month':'Upcoming'}
 }
 function counselingLeader(){
- const people=state.soldiers.filter(x=>x.active!==false),lower=x=>(x||'').toLowerCase();
+ const people=activeSoldiersInCommandOrder(),lower=x=>(x||'').toLowerCase();
  return people.find(x=>/ncoic|platoon sergeant/i.test(x.role||'')&&people.some(y=>y.reportsTo===x.id))||
  people.find(x=>/^SSG\b/i.test(x.name||'')&&people.some(y=>y.reportsTo===x.id))||null;
 }
@@ -1037,7 +1057,7 @@ function counselingPanelRows(rows){
  '<button class="text-button counseling-edit" data-act="new-counseling" data-id="'+e(x.soldier.id)+'" aria-label="Record counseling for '+e(x.soldier.name)+'">+ Record</button></div></div>').join('');
 }
 function soldiers(){
- const active=state.soldiers.filter(x=>x.active!==false);
+ const active=activeSoldiersInCommandOrder();
  const absences=(state.absences||[]).filter(x=>x.endDate>=today).sort((a,b)=>a.date.localeCompare(b.date));
  const outNow=absences.filter(x=>x.date<=today&&x.endDate>=today);
  const availabilityRows=absences.slice(0,8).map(x=>'<div class="list-row"><div class="row-main"><strong>'+e(who(x.soldierId))+' • '+e(x.type)+'</strong><span>'+fmt(x.date)+' to '+fmt(x.endDate)+(x.date<=today&&x.endDate>=today?' • Out now':'')+'</span></div><button class="text-button" data-act="absence-detail" data-id="'+e(x.id)+'">Edit ›</button></div>').join('');
@@ -1310,7 +1330,7 @@ function eightPlanDrawer(p){
  '<div class="field eight-participant-other" '+((p.participantScope||((p.who==='Unit'||p.who==='Section')?p.who:'Other'))==='Other'?'':'hidden')+'>'+input('Specify participants','participantOther',p.participantOther||(p.who==='Unit'||p.who==='Section'?'':p.who||''),'text',false)+'</div>'+
  input('Where?','where',p.where||'','text',false)+
  '<div class="field"><label for="f-leadSoldierId">Who is the lead on this training?</label><select name="leadSoldierId" id="f-leadSoldierId"><option value="">Select a Soldier from your roster</option>'+
- state.soldiers.filter(x=>x.active!==false).map(x=>'<option value="'+e(x.id)+'" '+((p.leadSoldierId||'')===x.id||(!p.leadSoldierId&&p.lead===x.name)?'selected':'')+'>'+e(x.name)+'</option>').join('')+'</select><p class="small-meta">Assign an internal point of contact. Soldiers and leaders listed in your local roster appear here.</p></div>':
+ activeSoldiersInCommandOrder().map(x=>'<option value="'+e(x.id)+'" '+((p.leadSoldierId||'')===x.id||(!p.leadSoldierId&&p.lead===x.name)?'selected':'')+'>'+e(x.name)+'</option>').join('')+'</select><p class="small-meta">Assign an internal point of contact. Soldiers and leaders listed in your local roster appear here.</p></div>':
  step===2?'<p class="small-meta">Choose Yes, No, or Not sure. Most questions begin at No. Command or office authorization begins at Not sure so it is not silently assumed to be unnecessary.</p>'+
  eightStepQuestions.map(q=>{
   const current=eightCurrentAnswer(p,q.id);
@@ -1494,7 +1514,7 @@ function render(){document.getElementById('app').innerHTML=vaultSetupOpen?setupV
 function options(arr,selected){return arr.map(x=>`<option value="${e(x)}" ${x===selected?'selected':''}>${e(x)}</option>`).join('')}
 function input(label,name,value='',type='text',required=true){return `<div class="field"><label for="f-${name}">${label}</label><input id="f-${name}" name="${name}" type="${type}" value="${e(value)}" ${required?'required':''}></div>`}
 function dropdown(label,name,values,value){return `<div class="field"><label for="f-${name}">${label}</label><select id="f-${name}" name="${name}">${options(values,value)}</select></div>`}
-function soldierDropdown(current='',optional=true){return `<div class="field"><label>Soldier ${optional?'(optional)':''}</label><select name="soldierId">${optional?'<option value="">No Soldier linked</option>':''}${state.soldiers.filter(s=>s.active!==false).map(s=>`<option value="${s.id}" ${s.id===current?'selected':''}>${e(s.name)}</option>`).join('')}</select></div>`}
+function soldierDropdown(current='',optional=true){return `<div class="field"><label>Soldier ${optional?'(optional)':''}</label><select name="soldierId">${optional?'<option value="">No Soldier linked</option>':''}${activeSoldiersInCommandOrder().map(s=>`<option value="${s.id}" ${s.id===current?'selected':''}>${e(s.name)}</option>`).join('')}</select></div>`}
 function formButtons(){return '<div class="action-row"><button class="btn primary" type="submit">Save changes</button><button class="btn" type="button" data-act="close">Cancel</button></div>'}
 function detailLine(k,v){return `<div class="detail-line"><span>${e(k)}</span><span>${e(v)}</span></div>`}
 function eventEndDateField(value,appointment){return '<div class="event-end-date"'+(appointment?' hidden':'')+'>'+input('End date (inclusive)','endDate',value,'date',false)+'</div>'}
@@ -1559,13 +1579,13 @@ else if(kind==='training'){
  '<div class="form-two">'+input('Training date','date',t?.date||trainingDatePreset||addDay(1),'date')+input('Start time','time',t?.time||'09:00','time')+'</div>'+
  (t?.endDate&&t.endDate!==t.date?'<details class="accordion"><summary>Existing multi-day event</summary>'+input('End date','endDate',t.endDate,'date')+'</details>':'')+
  '<div class="field"><label>Instructor / trainer (linked Soldier)</label><select name="instructorId"><option value="">Outside instructor / not assigned</option>'+
- state.soldiers.filter(x=>x.active!==false).map(x=>'<option value="'+e(x.id)+'" '+(t?.instructorId===x.id?'selected':'')+'>'+e(x.name)+'</option>').join('')+'</select></div>'+
+ activeSoldiersInCommandOrder().map(x=>'<option value="'+e(x.id)+'" '+(t?.instructorId===x.id?'selected':'')+'>'+e(x.name)+'</option>').join('')+'</select></div>'+
  input('Outside instructor / organization (if applicable)','outsideInstructor',t?.outsideInstructor||(!t?.instructorId?t?.instructor||'':''),'text',false)+
  '<div class="form-two">'+input('Duration (minutes)','duration',String(t?.duration||60),'number',false)+input('Location (generic)','location',t?.location||'','text',false)+'</div>'+
  input('Equipment / preparation (optional)','equipment',t?.equipment||'','text',false)+
  '<details class="accordion"><summary>Participants (optional)</summary>'+
  '<label class="training-checkbox"><input type="checkbox" name="entireSection" value="yes" '+(t?.entireSection?'checked':'')+'> Entire section (current roster)</label>'+
- '<div class="training-participants">'+state.soldiers.filter(x=>x.active!==false).map(x=>'<label class="training-checkbox"><input type="checkbox" name="participantIds" value="'+e(x.id)+'" '+(selected.includes(x.id)?'checked':'')+'> '+e(x.name)+'</label>').join('')+'</div><p class="small-meta">Scheduling participants does not confirm attendance.</p></details>'+
+ '<div class="training-participants">'+activeSoldiersInCommandOrder().map(x=>'<label class="training-checkbox"><input type="checkbox" name="participantIds" value="'+e(x.id)+'" '+(selected.includes(x.id)?'checked':'')+'> '+e(x.name)+'</label>').join('')+'</div><p class="small-meta">Scheduling participants does not confirm attendance.</p></details>'+
  dropdown('Event status','status',['Planned','Scheduled','Conducted','Canceled'],t?.status||'Planned')+
  '<details class="accordion" '+(t?.status==='Conducted'?'open':'')+'><summary>AAR / Results</summary>'+
  dropdown('Observed outcome','outcome',['Not assessed','Practice observed','Demonstrated proficiency','Needs retraining'],t?.outcome||'Not assessed')+
@@ -1603,7 +1623,7 @@ else if(kind==='counseling'){
  body='<div class="notice">Enter only dates of counseling actually conducted, no private counseling statements, notes or sensitive information.</div><form id="entity-form" data-kind="counseling" data-id="'+e(record?.id||'')+'">'+
  soldierDropdown(sid,false)+input('Date counseling conducted','date',record?.date||today,'date')+
  '<div class="field"><label>Counselor</label><select name="counselorId"><option value="">Not specified</option>'+
- state.soldiers.filter(x=>x.active!==false).map(x=>'<option value="'+e(x.id)+'" '+((record?.counselorId||soldier?.reportsTo)===x.id?'selected':'')+'>'+e(x.name)+'</option>').join('')+'</select></div>'+
+ activeSoldiersInCommandOrder().map(x=>'<option value="'+e(x.id)+'" '+((record?.counselorId||soldier?.reportsTo)===x.id?'selected':'')+'>'+e(x.name)+'</option>').join('')+'</select></div>'+
  '<p class="small-meta">Junior enlisted monthly, NCO quarterly. Confirm actual deadlines with your unit SOP.</p>'+formButtons()+'</form>'+
  (record?'<button class="btn training-delete" data-act="counseling-delete" data-id="'+e(record.id)+'">Delete this record</button>':'');
 }
@@ -1623,7 +1643,7 @@ function open(kind,id){drawer=[kind,id||''];render();document.querySelector('.dr
 function idNew(){return 'demo-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6)}
 function formSave(form){let f=Object.fromEntries(new FormData(form).entries()),kind=form.dataset.kind,id=form.dataset.id; if(kind==='soldier-edit'){let rank=(f.rank||'PV2').trim(),last=(f.lastName||'').trim().replace(/\s+/g,' ').slice(0,60),first=(f.firstName||'').trim().replace(/\s+/g,' ').slice(0,60);if(!last){notify('Enter a last name.');return}upsert('soldiers',{id:id||idNew(),name:rank+' '+last,rank,lastName:last,firstName:first,initials:last.slice(0,1).toUpperCase(),role:(f.role||'').trim(),reportsTo:sol(id)?.reportsTo||null,goals:sol(id)?.goals||[]});}else if(kind==='prep-edit'){let p=state.prepPlans.find(x=>x.id===id);if(!p)return;if(!f.date||!f.endDate||f.endDate<f.date){notify('End date must be on or after start date');return;}p.title=(f.title||p.title).trim();p.date=f.date;p.endDate=f.endDate;}else if(kind==='goals'){let soldier=sol(id);if(soldier) soldier.goals=(f.goals||'').split(/\r?\n/).map(v=>v.trim()).filter(Boolean).slice(0,12)}else if(kind==='requirement'){if(f.completion==='Verified'&&(!f.source.trim()||f.attendance!=='Verified')){notify('Verify attendance and add a permitted verification reference first.');return}let entry={id:id||idNew(),soldierId:f.soldierId,course:f.course,due:f.due,enrollment:f.enrollment,attendance:f.attendance,completion:f.completion,source:f.source};upsert('requirements',entry)}else if(kind==='todo'){if(!(f.title||'').trim()){notify('Enter a to-do.');return}let old=(state.todos||[]).find(x=>x.id===id)||{};upsert('todos',{...old,id:id||idNew(),title:f.title.trim().slice(0,180),soldierId:f.soldierId||'',due:f.due||'',weekly:f.weekly!=='no',done:old.done||false,note:(f.note||'').trim().slice(0,300),createdAt:old.createdAt||today})}else if(kind==='task'){upsert('tasks',{id:id||idNew(),title:f.title,soldierId:f.soldierId,due:f.due,done:f.done==='Completed',note:f.note,source:'manual'})}else if(kind==='event'){const eventEnd=f.type==='Appointment'?f.date:(f.endDate||f.date);if(eventEnd<f.date){notify('End date cannot be before start date');return}upsert('events',{id:id||idNew(),title:f.title,date:f.date,endDate:eventEnd,time:f.time,type:f.type,detail:f.detail,soldierIds:f.soldierId?[f.soldierId]:[],status:'Scheduled'})}else if(kind==='counseling'){if(!f.soldierId||!sol(f.soldierId)||!/^\d{4}-\d{2}-\d{2}$/.test(f.date||'')||f.date>today){notify('Choose a Soldier and a completed date not in the future.');return}upsert('counselings',{id:id||idNew(),soldierId:f.soldierId,date:f.date,counselorId:f.counselorId||''})}else if(kind==='mission'){upsert('missions',{id:id||idNew(),title:f.title,owner:f.soldierId,due:f.due,deliverable:f.deliverable,stage:['Assigned','Planning','In Production','In Review','Completed'].indexOf(f.stage),detail:f.detail})}else if(kind==='training'){
  const endDate=f.endDate||f.date;if(!f.title?.trim()||!f.date||!f.time||endDate<f.date){notify('Enter a training title, date and time.');return}
- const old=state.training.find(x=>x.id===id)||{},selected=Array.from(new Set(form.querySelector('[name="entireSection"]')?.checked?state.soldiers.filter(x=>x.active!==false).map(x=>x.id):new FormData(form).getAll('participantIds')));
+ const old=state.training.find(x=>x.id===id)||{},selected=Array.from(new Set(form.querySelector('[name="entireSection"]')?.checked?activeSoldiersInCommandOrder().map(x=>x.id):new FormData(form).getAll('participantIds')));
  const instructorId=f.instructorId||'',outsideInstructor=(f.outsideInstructor||'').trim();
  upsert('training',{...old,id:id||idNew(),title:f.title.trim(),date:f.date,endDate,time:f.time,
  instructorId,outsideInstructor,instructor:instructorId?who(instructorId):outsideInstructor,
