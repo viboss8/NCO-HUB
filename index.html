@@ -769,6 +769,7 @@ body:has(.soldiers-workspace) .main .content{padding-bottom:90px}
 .page-home .daily-checkin{display:grid;grid-template-columns:1fr 1fr 1fr 1.25fr;gap:10px;align-items:center;padding:13px 16px;margin:0 0 14px;background:#eaf0e3;border:1px solid #c2d0b4;border-radius:12px;color:#304c37}
 .page-home .daily-checkin strong{font-size:13px}
 .page-home .daily-checkin span{font-size:12px;line-height:1.35}
+.page-home .daily-todo-heading{margin-top:18px}
 .page-home .daily-priority-row .chip{flex-shrink:0}
 .page-home .daily-suggestion{display:grid;gap:5px;margin:5px 0 10px;padding:12px;border:1px solid #c9d5bd;border-radius:10px;background:#f2f6ed;color:#294533}
 .page-home .daily-suggestion strong{font-size:13px}
@@ -926,7 +927,7 @@ function fmt(d,options={month:'short',day:'numeric'}){return new Date(d+'T12:00:
 function sol(id){return state.soldiers.find(s=>s.id===id)}function who(id){let s=sol(id);return s?(s.active===false?s.name+' (former team)':s.name):'Unassigned'}
 function chip(s){let x=String(s).toLowerCase();let cls=/verified|completed|conducted/.test(x)?'green':/overdue|due today|not enrolled|no-show|unsuccessful/.test(x)?'red':/coming up|pending|planned|requested|in review/.test(x)?'amber':'blue';return `<span class="chip ${cls}">${e(s)}</span>`}
 function metric(title,value,foot,icon,target=""){return `<button class="metric metric-click" data-act="metric-open" data-id="${e(target)}"><div class="metric-head"><span>${e(title)}</span>${ico(icon)}</div><div class="metric-num">${value}</div><div class="metric-foot">${e(foot)}</div></button>`}
-function panel(title,body,action=''){let anchor=title==='YOUR PRIORITIES TODAY'?'my-actions':title==='SOLDIER PRIORITIES TODAY'?'soldier-actions':title==="TODAY\'S SCHEDULE"?'schedule':'';return `<section class="panel" id="${anchor}"><div class="panel-head"><h2>${title}</h2>${action}</div><div class="panel-body">${body}</div></section>`}
+function panel(title,body,action=''){let anchor=title==='Today’s Tasks'?'my-actions':title==='WHAT ARE MY SOLDIERS DOING TODAY?'?'soldier-actions':title==="TODAY\'S SCHEDULE"?'schedule':'';return `<section class="panel" id="${anchor}"><div class="panel-head"><h2>${title}</h2>${action}</div><div class="panel-body">${body}</div></section>`}
 function route(name){discardTransientEight();view=name;filter='';tab='all';drawer=null;render();window.scrollTo(0,0)}
 function notify(msg){document.querySelector('.toast')?.remove();let n=document.createElement('div');n.className='toast';n.setAttribute('role','status');n.textContent=msg;document.body.append(n);clearTimeout(toastTimer);toastTimer=setTimeout(()=>n.remove(),2800)}
 function heading(label,title,desc,action=''){return `<div class="heading"><div><div class="eyebrow">${label}</div><h1>${title}</h1><p>${desc}</p></div>${action}</div>`}
@@ -1022,14 +1023,14 @@ function dailyPriority(due){
  return {label:'Upcoming',rank:3};
 }
 function home(){
- const todoPanel=todoHomePanel();
  const abs=absenceSummary(),outNow=abs.filter(x=>x.date<=today&&x.endDate>=today);
  const absCards=abs.slice(0,5).map(x=>'<div class="list-row"><div class="row-main"><strong>'+e(who(x.soldierId))+' • '+e(x.type)+'</strong><span>'+fmt(x.date)+' to '+fmt(x.endDate)+(x.date<=today&&x.endDate>=today?' • Out now':'')+'</span></div><button class="text-button" data-act="absence-detail" data-id="'+e(x.id)+'">Edit ›</button></div>').join('');
  const counselAlerts=counselingRows().filter(x=>['Due soon','Overdue','No date recorded'].includes(x.status));
  const todayEvents=state.events.filter(x=>x.date===today).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
  const myActions=[
   ...state.tasks.filter(x=>!x.done).map(x=>({...x,type:'task',subtitle:x.soldierId?'Follow up with '+who(x.soldierId):'Personal follow-up'})),
-  ...state.prepPlans.filter(p=>!p.soldierId).flatMap(p=>(p.items||[]).filter(x=>!x.done).map(x=>({...x,id:p.id,type:'prep',subtitle:'Preparation for '+p.title})))
+  ...state.prepPlans.flatMap(p=>(p.items||[]).filter(x=>!x.done).map(x=>({...x,id:p.id,type:'prep',subtitle:'Preparation for '+p.title}))),
+  ...trainingPreparationDeadlines()
  ].sort((a,b)=>dailyPriority(a.due).rank-dailyPriority(b.due).rank||(a.due||'9999-12-31').localeCompare(b.due||'9999-12-31'));
  const soldierActions=[
   ...state.requirements.filter(x=>x.completion!=='Verified').map(x=>({title:x.course,subtitle:who(x.soldierId)+' • Training completion not verified',due:x.due,id:x.id,type:'requirement'})),
@@ -1038,8 +1039,15 @@ function home(){
   ...state.prepPlans.filter(p=>p.soldierId).flatMap(p=>(p.items||[]).filter(x=>!x.done).map(x=>({title:x.title,subtitle:who(p.soldierId)+' • Preparation for '+p.title,due:x.due,id:p.id,type:'prep'})))
  ].sort((a,b)=>dailyPriority(a.due).rank-dailyPriority(b.due).rank||(a.due||'9999-12-31').localeCompare(b.due||'9999-12-31'));
  const priorityRow=(item,ownerLine,actionName)=>{const priority=dailyPriority(item.due);return '<div class="list-row daily-priority-row"><div class="row-main"><strong>'+e(item.title)+'</strong><span>'+e(ownerLine)+' • '+(item.due?'Due '+fmt(item.due):'No deadline')+'</span></div>'+chip(priority.label)+'<button class="text-button" data-act="'+actionName+'-detail" data-id="'+e(item.id)+'">Open ›</button></div>'};
- const myCards=myActions.slice(0,6).map(x=>priorityRow(x,x.subtitle,x.type)).join('');
- const userSuggestion='<div class="daily-suggestion"><strong>Use an open block to look ahead</strong><span>Review the next training event and identify anything that needs your coordination.</span><button class="btn tiny" data-act="goto" data-id="training">Review training ›</button></div>';
+ const todayPriorities=myActions.filter(item=>item.due&&item.due<=today);
+ const todayTodos=todoItems().filter(item=>!item.done&&item.due===today);
+ const renderPriority=item=>priorityRow(item,item.subtitle,item.type);
+ const dailyTasks='<h3 class="subsection">Priorities</h3>'+
+  (todayPriorities.map(renderPriority).join('')||'<p class="small-meta">No priorities due today.</p>')+
+  '<h3 class="subsection daily-todo-heading">To-Dos</h3>'+
+  (todayTodos.map(todoRow).join('')||'<p class="small-meta">No to-dos planned for today.</p>')+
+  '<button class="text-button" data-act="new-todo">+ Add to-do</button>';
+ const todoPanel=todoHomePanel(myActions,renderPriority);
  const soldierCards=soldierStatusBoard();
  const todayCards=todayEvents.map(ev=>'<div class="row-event"><div class="time">'+e(ev.time||'')+'</div><div class="vertical"></div><div class="row-main"><strong>'+e(ev.title)+'</strong><span>'+e(ev.type)+(ev.soldierIds?.length?' • '+ev.soldierIds.map(who).join(', '):'')+'</span></div><button class="text-button" data-act="event-detail" data-id="'+e(ev.id)+'">Open ›</button></div>').join('');
  return heading('DAILY LEADERSHIP VIEW','Mission Control','Start with your Soldiers’ priorities, then your own. When both are clear, use the open time to build readiness.',
@@ -1047,10 +1055,10 @@ function home(){
   '<div class="daily-checkin"><strong>Today’s check-in</strong><span>1. What do my Soldiers need to complete?</span><span>2. What do I need to do or provide?</span><span>3. If we have room, what will improve readiness?</span></div>'+
   '<div class="banner">Browser-local workspace. Do not enter identifiable personnel schedules or sensitive duty information until approved for this environment.</div>'+
   (!state.soldiers.some(s=>s.active!==false)?'<div class="setup-strip"><strong>Set up your section</strong><p>Your roster has not been imported into this browser. Go to Soldiers and select Import Roster to restore the hierarchy. This does not happen automatically from the chat.</p><button class="btn primary" data-act="goto" data-id="soldiers">Open Soldiers and Import Roster</button></div>':'')+
-  '<div class="metrics">'+metric('Today',todayEvents.length,'Calendar commitments','calendar','schedule')+metric('My Actions',myActions.length,'Open follow-ups and prep','tasks','my-actions')+metric('Soldier Actions',soldierActions.length,'Assigned work and requirements','users','soldier-actions')+metric('Active Soldiers',activeSoldiersInCommandOrder().length,'Profiles on this device','users','soldiers')+'</div>'+
+  '<div class="metrics">'+metric('Today',todayEvents.length,'Calendar commitments','calendar','schedule')+metric('Today’s Tasks',todayPriorities.length+todayTodos.length,'Priorities and to-dos','tasks','my-actions')+metric('Soldier Actions',soldierActions.length,'Assigned work and requirements','users','soldier-actions')+metric('Active Soldiers',activeSoldiersInCommandOrder().length,'Profiles on this device','users','soldiers')+'</div>'+
   '<div class="home-action-grid">'+
    panel('WHAT ARE MY SOLDIERS DOING TODAY?',soldierCards,'<button class="text-button" data-act="goto" data-id="soldiers">Soldier profiles ›</button>')+
-   panel('YOUR PRIORITIES TODAY',myCards||'<div class="empty">No personal follow-ups or preparation tasks are recorded. Use open time to look ahead.</div>'+userSuggestion,'<button class="text-button" data-act="goto" data-id="tasks">All my tasks ›</button>')+
+   panel('Today’s Tasks',dailyTasks,'<button class="text-button" data-act="goto" data-id="tasks">All my tasks ›</button>')+
   '</div>'+
   todoPanel+
   '<div class="home-schedule"><details class="panel counseling-home-details"><summary>COUNSELING REMINDERS <span class="counseling-count">'+counselAlerts.length+' attention</span></summary><div class="panel-body">'+(counselingPanelRows(counselAlerts.slice(0,6))||'<div class="empty">No counseling reminders need attention.</div>')+'<button class="text-button" data-act="goto" data-id="soldiers">All counseling ›</button></div></details>'+panel('SOLDIER LEAVE & PASSES'+(outNow.length?' • '+outNow.length+' OUT NOW':''),absCards||'<div class="empty">No upcoming Leave or Pass records.</div>','<button class="text-button" data-act="new-absence">+ Add Leave / Pass</button>')+panel("TODAY'S SCHEDULE",todayCards||'<div class="empty">Nothing scheduled for today.</div>','<button class="text-button" data-act="calendar">Full calendar ›</button>')+'</div>';
@@ -1157,6 +1165,15 @@ function trainingReadyState(t){
  return {complete,total:trainingReadyChecks.length,due,active,ready,notified,urgency,
   showAlert:active&&urgency==='red',
   status:urgency==='ready'?'Ready':urgency==='inactive'?'Inactive':urgency==='red'?'Needs attention':'Preparation pending'};
+}
+function trainingPreparationDeadlines(){
+ return state.training.flatMap(event=>{
+  if(!event.date)return [];
+  const readiness=trainingReadyState(event);
+  if(!readiness.active||readiness.ready)return [];
+  return [{id:event.id,type:'training',title:'Prepare for '+event.title,due:readiness.due,
+   subtitle:'Readiness target • '+readiness.complete+'/'+readiness.total+' checks complete'}];
+ });
 }
 function trainingReadinessAlerts(){
  return state.training.filter(t=>t.date&&trainingReadyState(t).showAlert).sort((a,b)=>a.date.localeCompare(b.date))
@@ -1488,12 +1505,17 @@ function todoRow(t){
  (t.weekly?' • Weekly review':'')+'</span></div>'+
  '<button class="text-button" data-act="todo-detail" data-id="'+e(t.id)+'">Edit ›</button></div>';
 }
-function todoHomePanel(){
- const list=todoItems().filter(x=>!x.done&&x.weekly!==false),trainingAlerts=trainingReadinessAlerts();
- return '<details class="panel weekly-todo-panel" open><summary>THIS WEEK’S TO-DO LIST <span class="counseling-count">'+(list.length+trainingAlerts.length)+' to review</span></summary>'+
- '<div class="panel-body"><p class="small-meta">Review weekly. Items stay here until you check them off, even without a due date.</p>'+
- (trainingAlerts.map(trainingReadinessRow).join('')+list.slice(0,6).map(todoRow).join('')||'<div class="empty">Nothing on your to-do list yet.</div>')+
- (list.length>6?'<p class="small-meta">'+(list.length-6)+' more to-dos in My Tasks</p>':'')+
+function todoHomePanel(actions,renderPriority){
+ const weekEnd=dateAt(todoStartOfWeek());
+ weekEnd.setDate(weekEnd.getDate()+6);
+ const end=dateKey(weekEnd);
+ const priorities=actions.filter(item=>item.due&&item.due<=end);
+ const list=todoItems().filter(item=>!item.done&&(item.weekly!==false||(item.due&&item.due<=end)));
+ return '<details class="panel weekly-todo-panel" open><summary>This Week’s Tasks <span class="counseling-count">'+(list.length+priorities.length)+' to review</span></summary>'+
+ '<div class="panel-body"><h3 class="subsection">Priorities</h3>'+
+ (priorities.map(renderPriority).join('')||'<p class="small-meta">No priorities due this week.</p>')+
+ '<h3 class="subsection daily-todo-heading">To-Dos</h3>'+
+ (list.map(todoRow).join('')||'<p class="small-meta">No to-dos to review.</p>')+
  '<div class="action-row"><button class="text-button" data-act="new-todo">+ Add to-do</button><button class="text-button" data-act="tasks-todo">Full to-do list ›</button></div></div></details>';
 }
 function todoPage(){
@@ -1524,7 +1546,7 @@ function calendarDayData(d){
    id:soldier.id,kind:'soldier',name:label+' • '+soldier.name,sub:'Promotion & Development',group:'deadline'
   }))),
   ...counselingRows().filter(x=>x.due===d).map(x=>({id:x.soldier.id,kind:'counseling',name:'Counseling: '+x.soldier.name,sub:x.cadence+' due • '+(x.soldier.reportsTo?who(x.soldier.reportsTo):'Counselor not assigned'),group:'deadline'})),
-  ...state.training.filter(x=>x.date&&trainingReadyState(x).active&&!trainingReadyState(x).ready&&trainingReadyState(x).due===d).map(x=>({id:x.id,kind:'training',name:(x.demo?'[DEMO] ':'')+'Prepare for '+x.title,sub:'Readiness target • '+trainingReadyState(x).complete+'/'+trainingReadyState(x).total+' checks complete',group:'deadline'})),
+  ...trainingPreparationDeadlines().filter(item=>item.due===d).map(item=>({id:item.id,kind:item.type,name:item.title,sub:item.subtitle,group:'deadline'})),
   ...state.tasks.filter(x=>!x.done&&x.due===d).map(x=>({id:x.id,kind:'task',name:x.title,sub:x.soldierId?'Follow up • '+who(x.soldierId):'My follow-up',group:'followup'})),
   ...state.requirements.filter(x=>x.completion!=='Verified'&&x.due===d).map(x=>({id:x.id,kind:'requirement',name:x.course,sub:'Training deadline • '+who(x.soldierId),group:'deadline'})),
   ...state.missions.filter(x=>x.stage!==4&&x.due===d).map(x=>({id:x.id,kind:'mission',name:x.title,sub:'Mission deadline'+(x.owner?' • '+who(x.owner):''),group:'deadline'})),
