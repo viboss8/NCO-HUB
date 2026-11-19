@@ -830,7 +830,27 @@ function federalHolidays(year){
 function dayOffLabel(d){return federalHolidays(Number(d.slice(0,4)))[d]||JBLM_DONSA[d]||null}
 function isWorkingDay(d){let n=dateAt(d).getDay();return n!==0&&n!==6&&!dayOffLabel(d)}
 function workingDaysBefore(eventDate,n){let d=dateAt(eventDate);for(let i=0;i<n;){d.setDate(d.getDate()-1);if(isWorkingDay(dateKey(d)))i++}return dateKey(d)}
-function prepDeadline(eventDate,mode,custom){return mode==='custom'?custom:workingDaysBefore(eventDate,Number(mode)||3)}
+function workdayDeadline(date){
+ return date&&!isWorkingDay(date)?workingDaysBefore(date,1):date;
+}
+function normalizeWorkdayDeadlines(){
+ const pending=[
+  ...state.tasks.filter(item=>!item.done),
+  ...(state.todos||[]).filter(item=>!item.done),
+  ...state.requirements.filter(item=>item.completion!=='Verified'),
+  ...state.missions.filter(item=>item.stage!==4),
+  ...state.prepPlans.flatMap(plan=>(plan.items||[]).filter(item=>!item.done))
+ ];
+ let changed=false;
+ for(const item of pending){
+  const due=workdayDeadline(item.due);
+  if(due===item.due)continue;
+  item.due=due;
+  changed=true;
+ }
+ return changed;
+}
+function prepDeadline(eventDate,mode,custom){return mode==='custom'?workdayDeadline(custom):workingDaysBefore(eventDate,Number(mode)||3)}
 function prepDateOptions(value){return [1,2,3,4,5,6,7,8,9,10].map(n=>'<option value="'+n+'" '+(String(value)===String(n)?'selected':'')+'>'+n+' working day'+(n===1?'':'s')+' before event</option>').join('')+'<option value="custom" '+(value==='custom'?'selected':'')+'>Custom date</option>'}
 function wizardDraftRows(form){return Array.from({length:wizardRows},(_,i)=>({title:form.elements['itemtitle'+i]?.value||'',mode:form.elements['itemmode'+i]?.value||'3',due:form.elements['itemdue'+i]?.value||'',owner:form.elements['itemowner'+i]?.value||'NCO'}))}
 function updatePrepPreview(form){if(!form||wizardStep!==3)return;for(let i=0;i<wizardRows;i++){let mode=form.elements['itemmode'+i]?.value||'3',wrap=document.getElementById('prep-custom-'+i),target=document.getElementById('prep-date-'+i);if(wrap)wrap.style.display=mode==='custom'?'block':'none';let due=prepDeadline(prepDraft.date,mode,form.elements['itemdue'+i]?.value||'');if(target)target.textContent=due?'Requirement deadline: '+fmt(due)+(dayOffLabel(due)?' • Selected non-working day':''):'Choose a custom date'}}
@@ -884,13 +904,13 @@ async function deriveVaultKey(pass,salt){const base=await crypto.subtle.importKe
 async function sealedSnapshot(snapshot,keyToUse,saltToUse){const iv=crypto.getRandomValues(new Uint8Array(12)),cipher=await crypto.subtle.encrypt({name:'AES-GCM',iv},keyToUse,enc.encode(snapshot));return JSON.stringify({version:1,kdf:'PBKDF2-SHA256',iterations:250000,salt:b64(saltToUse),iv:b64(iv),ciphertext:b64(new Uint8Array(cipher))})}
 function validVault(v){return v&&v.version===1&&v.kdf==='PBKDF2-SHA256'&&v.iterations===250000&&typeof v.salt==='string'&&typeof v.iv==='string'&&typeof v.ciphertext==='string'}
 function validTracker(v){return v&&['soldiers','events','requirements','training','missions','tasks','prepPlans','met'].every(k=>Array.isArray(v[k]))}
-async function unlockVault(pass){try{const v=JSON.parse(localStorage.getItem(vaultStorageKey)||'null');if(!validVault(v))throw Error('Invalid vault');const salt=bytesFrom64(v.salt),candidate=await deriveVaultKey(pass,salt);const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytesFrom64(v.iv)},candidate,bytesFrom64(v.ciphertext));const decoded=JSON.parse(dec.decode(pt));if(!validTracker(decoded))throw Error('Invalid tracker data');state=decoded;if(!Array.isArray(state.counselings))state.counselings=[];if(!Array.isArray(state.absences))state.absences=[];if(!Array.isArray(state.todos))state.todos=[];if(!Array.isArray(state.trainingPlans))state.trainingPlans=[];removeEmptyLaunchPlans();vaultKey=candidate;vaultSalt=salt;removeDemoTrainingData();render();notify('Tracker unlocked');return true}catch(err){notify('Unable to unlock. Check the passphrase or backup.');return false}}
+async function unlockVault(pass){try{const v=JSON.parse(localStorage.getItem(vaultStorageKey)||'null');if(!validVault(v))throw Error('Invalid vault');const salt=bytesFrom64(v.salt),candidate=await deriveVaultKey(pass,salt);const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytesFrom64(v.iv)},candidate,bytesFrom64(v.ciphertext));const decoded=JSON.parse(dec.decode(pt));if(!validTracker(decoded))throw Error('Invalid tracker data');state=decoded;if(!Array.isArray(state.counselings))state.counselings=[];if(!Array.isArray(state.absences))state.absences=[];if(!Array.isArray(state.todos))state.todos=[];if(!Array.isArray(state.trainingPlans))state.trainingPlans=[];removeEmptyLaunchPlans();vaultKey=candidate;vaultSalt=salt;removeDemoTrainingData();if(normalizeWorkdayDeadlines())save();render();notify('Tracker unlocked');return true}catch(err){notify('Unable to unlock. Check the passphrase or backup.');return false}}
 async function createVault(pass){if(typeof crypto==='undefined'||!crypto.subtle){notify('Secure storage requires HTTPS and browser encryption support.');return}
  if(pass.length<12){notify('Use at least 12 characters for your passphrase.');return}
  if(localStorage.getItem(vaultStorageKey)){notify('A protected tracker already exists. Unlock it instead.');return}
  try{let salt=crypto.getRandomValues(new Uint8Array(16)),candidate=await deriveVaultKey(pass,salt),blob=await sealedSnapshot(JSON.stringify(state),candidate,salt);localStorage.setItem(vaultStorageKey,blob);localStorage.removeItem(key);vaultKey=candidate;vaultSalt=salt;vaultSetupOpen=false;render();notify('Local encryption enabled. Save an encrypted backup.')}catch(err){notify('Encryption setup failed; existing data was preserved.')}}
 function queueEncryptedSave(){const snapshot=JSON.stringify(state),currentKey=vaultKey,salt=vaultSalt;vaultWrite=vaultWrite.catch(()=>{}).then(async()=>{if(!currentKey||!salt)throw Error('Vault locked');localStorage.setItem(vaultStorageKey,await sealedSnapshot(snapshot,currentKey,salt))}).catch(()=>notify('Encrypted save failed. Do not close the page until resolved.'));return vaultWrite}
-function save(){if(vaultKey){queueEncryptedSave();return}if(localStorage.getItem(vaultStorageKey)){notify('Tracker is locked. Unlock before editing.');return}try{localStorage.setItem(key,JSON.stringify(state))}catch{notify('Could not save in this browser')}}
+function save(){normalizeWorkdayDeadlines();if(vaultKey){queueEncryptedSave();return}if(localStorage.getItem(vaultStorageKey)){notify('Tracker is locked. Unlock before editing.');return}try{localStorage.setItem(key,JSON.stringify(state))}catch{notify('Could not save in this browser')}}
 async function lockVault(){await vaultWrite;vaultKey=null;vaultSalt=null;state=initial();drawer=null;render()}
 async function downloadVault(){if(!vaultKey)return notify('Unlock the tracker first.');await vaultWrite;const data=localStorage.getItem(vaultStorageKey);if(!data)return notify('No encrypted backup found.');const blob=new Blob([data],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='nco-mission-control-encrypted-backup-'+today+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000)}
 async function restoreVaultFile(file){if(!file)return;try{const data=await file.text(),v=JSON.parse(data);if(!validVault(v))throw Error('Invalid encrypted backup');if(!confirm('Replace the current tracker with this encrypted backup? Your current local entries will be overwritten.'))return;await vaultWrite;localStorage.setItem(vaultStorageKey,data);localStorage.removeItem(key);vaultKey=null;vaultSalt=null;state=initial();drawer=null;render();notify('Backup imported. Enter its passphrase to unlock.')}catch(err){notify('Backup is not a supported encrypted NCO tracker file.')}}
@@ -1128,13 +1148,12 @@ const trainingReadyChecks=[
 ];
 function trainingReadyState(t){
  const complete=trainingReadyChecks.filter(x=>t.readyChecks?.[x.id]===true).length;
- const d=dateAt(t.date);d.setDate(d.getDate()-2);
- const due=dateKey(d),days=Math.round((dateAt(t.date)-dateAt(today))/86400000);
+ const due=workingDaysBefore(t.date,7);
  const active=t.status!=='Canceled'&&t.status!=='Conducted';
  const ready=complete===trainingReadyChecks.length;
  const notified=t.readyChecks?.notified===true;
- const urgency=!active?'inactive':ready?'ready':!notified||days<=7?'red':'amber';
- return {complete,total:trainingReadyChecks.length,due,days,active,ready,notified,urgency,
+ const urgency=!active?'inactive':ready?'ready':!notified||today>=due?'red':'amber';
+ return {complete,total:trainingReadyChecks.length,due,active,ready,notified,urgency,
   showAlert:active&&urgency==='red',
   status:urgency==='ready'?'Ready':urgency==='inactive'?'Inactive':urgency==='red'?'Needs attention':'Preparation pending'};
 }
@@ -1185,7 +1204,7 @@ function eightSuggestedDeadline(eventDate,leadDays){
  // A short-notice event has fewer working days than the recommended lead time.
  // Distribute suggestions across remaining workdays before the event; never suggest a past date.
  while(d<end&&days.length<370){if(isWorkingDay(dateKey(d)))days.push(dateKey(d));d.setDate(d.getDate()+1)}
- if(!days.length)return today;
+ if(!days.length)return workdayDeadline(today);
  const maxLead=8;
  if(days.length>=maxLead)return preferred;
  const position=Math.round((maxLead-Math.min(maxLead,Math.max(1,leadDays)))/(maxLead-1)*(days.length-1));
@@ -1420,11 +1439,11 @@ function training(){
  const upcoming=all.filter(t=>(t.endDate||t.date)>=today&&t.status!=='Canceled').length;
  const openPrep=prepItems(),readinessAlerts=trainingReadinessAlerts();
  const byWeek=block.map(w=>'<div class="training-week"><div class="training-week-heading"><strong>'+e(w.label)+'</strong><span>'+fmt(w.start,{month:'short',day:'numeric'})+' to '+fmt(w.end,{month:'short',day:'numeric'})+'</span></div>'+
-  (inBlock.filter(t=>t.date<=w.end&&(t.endDate||t.date)>=w.start).map(t=>'<button class="training-event-row" data-act="training-detail" data-id="'+e(t.id)+'"><span class="training-event-date">'+fmt(t.date,{weekday:'short',day:'numeric'})+'</span><span class="training-event-text"><strong>'+e(t.title)+'</strong><small>'+(t.time?e(t.time)+' • ':'')+e(t.status||'Planned')+(t.demo?' • DEMO':t.planId?' • 8-Step Plan':'')+' • '+e(t.instructorId?who(t.instructorId):t.outsideInstructor||t.instructor||'Instructor not assigned')+'</small></span>'+(trainingReadyState(t).active&&!trainingReadyState(t).ready?'<span class="training-warning-mark '+(trainingReadyState(t).urgency==='amber'?'training-warning-amber':'')+'" aria-label="'+(trainingReadyState(t).urgency==='red'?'Training needs attention':'Preparation pending')+'" title="'+(trainingReadyState(t).urgency==='red'?'Urgent: notify instructor or finish preparation within seven days':'Preparation pending, class is more than seven days away')+'">!</span>':'<span aria-hidden="true">›</span>')+'</button>').join('')||'<div class="training-week-empty training-empty-add"><span>No section training scheduled</span><button type="button" class="training-week-add" data-act="training-week-add" data-id="'+e(w.start)+'" aria-label="Add section training to '+e(w.label)+'" title="Add training to '+e(w.label)+'">+</button></div>')+'</div>').join('');
+  (inBlock.filter(t=>t.date<=w.end&&(t.endDate||t.date)>=w.start).map(t=>'<button class="training-event-row" data-act="training-detail" data-id="'+e(t.id)+'"><span class="training-event-date">'+fmt(t.date,{weekday:'short',day:'numeric'})+'</span><span class="training-event-text"><strong>'+e(t.title)+'</strong><small>'+(t.time?e(t.time)+' • ':'')+e(t.status||'Planned')+(t.demo?' • DEMO':t.planId?' • 8-Step Plan':'')+' • '+e(t.instructorId?who(t.instructorId):t.outsideInstructor||t.instructor||'Instructor not assigned')+'</small></span>'+(trainingReadyState(t).active&&!trainingReadyState(t).ready?'<span class="training-warning-mark '+(trainingReadyState(t).urgency==='amber'?'training-warning-amber':'')+'" aria-label="'+(trainingReadyState(t).urgency==='red'?'Training needs attention':'Preparation pending')+'" title="'+(trainingReadyState(t).urgency==='red'?'Urgent: notify instructor or finish preparation within seven working days':'Preparation pending, class is more than seven working days away')+'">!</span>':'<span aria-hidden="true">›</span>')+'</button>').join('')||'<div class="training-week-empty training-empty-add"><span>No section training scheduled</span><button type="button" class="training-week-add" data-act="training-week-add" data-id="'+e(w.start)+'" aria-label="Add section training to '+e(w.label)+'" title="Add training to '+e(w.label)+'">+</button></div>')+'</div>').join('');
  const reqTable='<div class="panel table-wrap"><table class="data-table"><thead><tr><th>Course / requirement</th><th>Soldier</th><th>Enrollment</th><th>Attendance</th><th>Completion</th><th>Deadline</th><th></th></tr></thead><tbody>'+rows.map(r=>'<tr><td><strong>'+e(r.course)+'</strong></td><td>'+e(who(r.soldierId))+'</td><td>'+chip(r.enrollment)+'</td><td>'+chip(r.attendance)+'</td><td>'+chip(r.completion)+'</td><td>'+fmt(r.due)+'</td><td><button class="text-button" data-act="requirement-detail" data-id="'+e(r.id)+'">Edit ›</button></td></tr>').join('')+'</tbody></table>'+(rows.length?'':'<div class="empty">No matching requirements.</div>')+'</div>';
  return '<div class="training-workspace">'+heading('TRAINING MANAGEMENT','Training & Planning','Section classes, Soldier requirements, and preparation in one place.')+
  '<div class="training-toolbar"><button class="btn primary" data-act="new-training">+ Add Section Training</button><button class="btn" data-act="eight-new">+ Plan a Training or Class (8-Step)</button><button class="btn" data-act="new-prep">Guided Training Setup</button><button class="btn" data-act="training-config">FY / T-week settings</button></div>'+
- (readinessAlerts.length?'<div class="training-prep-alert"><span class="readiness-alert-icon">!</span><strong>'+readinessAlerts.length+' class'+(readinessAlerts.length===1?'':'es')+' need preparation</strong><span>Be ready two days before class. Notify the instructor early.</span></div>':'')+
+ (readinessAlerts.length?'<div class="training-prep-alert"><span class="readiness-alert-icon">!</span><strong>'+readinessAlerts.length+' class'+(readinessAlerts.length===1?'':'es')+' need preparation</strong><span>Be ready seven working days before class. Notify the instructor early.</span></div>':'')+
  '<div class="training-summary"><div><strong>'+upcoming+'</strong><span>Upcoming section events</span></div><div><strong>'+openPrep.length+'</strong><span>Open preparation items</span></div><div><strong>'+state.requirements.filter(r=>r.completion!=='Verified').length+'</strong><span>Outstanding requirements</span></div></div>'+
  '<section class="training-area eight-plan-area"><div class="training-area-head"><h2>8-Step Training Plans</h2><div class="action-row"><button class="btn tiny" data-act="eight-new">+ New Plan</button></div></div><p class="small-meta">Guided plans, preparation deadlines and eight-step progress. Drafts do not create calendar events.</p>'+(state.trainingPlans.filter(p=>p.title||p.trainingId||p.prepPlanId).map(eightPlanSummary).join('')||'<p class="empty">No 8-Step plans yet. Start one to test the workflow.</p>')+'</section>'+
  '<section class="training-area"><div class="training-area-head"><h2>1. Section Training Calendar</h2><button class="text-button" data-act="goto" data-id="calendar">Full calendar ›</button></div><div class="training-block-nav"><button class="btn tiny" data-act="training-block-prev" aria-label="Previous three weeks">‹</button><div><strong>FY'+e(String(c.fiscalYear))+' • '+block[0].label+'–'+block[2].label+'</strong><small>'+fmt(block[0].start,{month:'short',day:'numeric'})+' to '+fmt(block[2].end,{month:'short',day:'numeric',year:'numeric'})+'</small></div><button class="btn tiny" data-act="training-block-next" aria-label="Next three weeks">›</button><button class="btn tiny" data-act="training-block-current" aria-label="Return to starting T-week block">Back to T'+e(String(c.blockStartWeek))+'</button></div><div class="training-weeks">'+byWeek+'</div><details class="training-extras"><summary>All section training events ('+all.length+')</summary><div class="training-all-events">'+(all.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(t=>'<button class="training-event-row" data-act="training-detail" data-id="'+e(t.id)+'"><span>'+fmt(t.date)+'</span><strong>'+(t.demo?'<span class="eight-demo-chip">DEMO</span> ':'')+e(t.title)+'</strong><span>'+e(t.status||'Planned')+' ›</span></button>').join('')||'<p>No section training events saved yet. Use Add Section Training to plan one.</p>')+'</div></details></section>'+
@@ -1791,7 +1810,7 @@ if(ev.target.id==='eight-form'){ev.preventDefault();const form=ev.target,p=eight
 document.addEventListener('change',ev=>{if(ev.target.id==='vault-file'){restoreVaultFile(ev.target.files?.[0]);}if(ev.target.id==='roster-file'){importRosterFile(ev.target.files?.[0]);}});
 document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&drawer){discardTransientEight();drawer=null;render()}});
 document.addEventListener('click',ev=>{if(ev.target.id==='overlay'){discardTransientEight();drawer=null;render()}});
-if(!localStorage.getItem(vaultStorageKey))removeDemoTrainingData();
+if(!localStorage.getItem(vaultStorageKey)){removeDemoTrainingData();if(normalizeWorkdayDeadlines())save();}
 render();
 </script>
 </body>
