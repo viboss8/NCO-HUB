@@ -1,4 +1,3 @@
-d19a5e225cb078fa4885b92f9fa75ba0688109a3
 <!doctype html>
 <html lang="en">
 <head>
@@ -926,7 +925,7 @@ function currentSoldierStatus(soldier){
  return {label:'Nothing assigned today',detail:'Open for tasking',type:'available'};
 }
 function soldierStatusBoard(){
- const active=state.soldiers.filter(s=>s.active!==false);
+ const active=state.soldiers.filter(s=>s.active!==false&&!/^(?:CPT|CAPT|CAPTAIN)\b/i.test((s.rank||s.name||'').trim()));
  if(!active.length)return '<div class="empty">Import your roster to see each Soldier’s status.</div>';
  return '<div class="soldier-status-table"><div class="soldier-status-heading"><strong>Soldier</strong><strong>What they’re doing today</strong><span></span></div>'+
  active.map(s=>{
