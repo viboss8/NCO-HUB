@@ -842,7 +842,7 @@ function workdayDeadline(date){
 function normalizeWorkdayDeadlines(){
  const pending=[
   ...state.tasks.filter(item=>!item.done),
-  ...(state.todos||[]).filter(item=>!item.done),
+  ...(state.todos||[]).filter(item=>!item.done&&item.source!=='check-in'),
   ...state.requirements.filter(item=>item.completion!=='Verified'),
   ...state.missions.filter(item=>item.stage!==4),
   ...state.prepPlans.flatMap(plan=>(plan.items||[]).filter(item=>!item.done))
@@ -1032,14 +1032,37 @@ const checkInQuestions={
  own:['What do I need to do today?','Pick the task you need to get done.','No tasks today'],
  readiness:['How can I make today productive and improve readiness?','Choose one action that moves training or readiness forward.','No additional action today']
 };
-function dailyCheckIn(){
+const checkInSuggestions=[
+ 'Review upcoming training and confirm the instructor, materials, and location.',
+ 'Check Soldier development milestones and follow up on one item that needs attention.',
+ 'Choose one training gap and outline a short practice session.'
+];
+function addCheckInTodo(title){
+ const existing=(state.todos||[]).find(item=>item.due===today&&item.title.trim().toLowerCase()===title.toLowerCase());
+ if(existing)return existing.id;
+ const id=idNew();
+ upsert('todos',{id,title,due:today,createdAt:today,done:false,weekly:true,source:'check-in'});
+ return id;
+}
+function syncCheckInTodos(){
+ const checkIn=state.dailyCheckIn;
+ if(checkIn?.date!==today)return;
+ const pending=Object.values(checkIn.answers).filter(answer=>answer.action&&!answer.todoId);
+ for(const answer of pending)answer.todoId=addCheckInTodo(answer.action);
+ if(pending.length)save();
+}
+function dailyCheckIn(hasOpenTasks){
  const answers=state.dailyCheckIn?.date===today?state.dailyCheckIn.answers:{};
  const steps=answers.soldiers?.action?['soldiers','support','own','readiness']:['soldiers','own','readiness'];
  const step=steps.find(key=>!answers[key]);
  const heading='<section class="daily-checkin" aria-labelledby="daily-checkin-title"><h2 id="daily-checkin-title">Today’s Check-In</h2>';
  if(!step){
+  const suggestions=!hasOpenTasks&&!steps.some(key=>answers[key].action)?
+   '<div class="daily-suggestion"><strong>Suggested next actions</strong>'+checkInSuggestions.map((suggestion,index)=>
+    '<div class="list-row"><span class="row-main">'+e(suggestion)+'</span><button class="btn tiny" data-act="check-in-suggestion" data-id="'+index+'" aria-label="Add to Today’s Tasks: '+e(suggestion)+'">Add to today</button></div>'
+   ).join('')+'</div>':'';
   return heading+'<dl>'+steps.map(key=>'<dt>'+checkInQuestions[key][0]+'</dt><dd>'+e(answers[key].action||checkInQuestions[key][2])+'</dd>').join('')+
-   '</dl><button class="btn tiny" data-act="check-in-restart">Start check-in over</button></section>';
+   '</dl>'+suggestions+'<button class="btn tiny" data-act="check-in-restart">Start check-in over</button></section>';
  }
  const [question,hint,skip]=checkInQuestions[step];
  const reference=step==='soldiers'?['soldier-actions','See Soldier status']:step==='own'?['my-actions','See Today’s Tasks']:null;
@@ -1050,6 +1073,7 @@ function dailyCheckIn(){
   (reference?'<button class="text-button" data-act="metric-open" data-id="'+reference[0]+'">'+reference[1]+'</button>':'')+'</section>';
 }
 function home(){
+ syncCheckInTodos();
  const abs=absenceSummary(),outNow=abs.filter(x=>x.date<=today&&x.endDate>=today);
  const absCards=abs.slice(0,5).map(x=>'<div class="list-row"><div class="row-main"><strong>'+e(who(x.soldierId))+' • '+e(x.type)+'</strong><span>'+fmt(x.date)+' to '+fmt(x.endDate)+(x.date<=today&&x.endDate>=today?' • Out now':'')+'</span></div><button class="text-button" data-act="absence-detail" data-id="'+e(x.id)+'">Edit ›</button></div>').join('');
  const counselAlerts=counselingRows().filter(x=>['Due soon','Overdue','No date recorded'].includes(x.status));
@@ -1079,7 +1103,7 @@ function home(){
  const todayCards=todayEvents.map(ev=>'<div class="row-event"><div class="time">'+e(ev.time||'')+'</div><div class="vertical"></div><div class="row-main"><strong>'+e(ev.title)+'</strong><span>'+e(ev.type)+(ev.soldierIds?.length?' • '+ev.soldierIds.map(who).join(', '):'')+'</span></div><button class="text-button" data-act="event-detail" data-id="'+e(ev.id)+'">Open ›</button></div>').join('');
  return heading('DAILY LEADERSHIP VIEW','Mission Control','Start with your Soldiers’ priorities, then your own. When both are clear, use the open time to build readiness.',
   '<div class="action-row"><button class="btn primary" data-act="quick-add">+ Add Item</button></div>')+
-  dailyCheckIn()+
+  dailyCheckIn(todayPriorities.length+todayTodos.length>0)+
   '<div class="banner">Browser-local workspace. Do not enter identifiable personnel schedules or sensitive duty information until approved for this environment.</div>'+
   (!state.soldiers.some(s=>s.active!==false)?'<div class="setup-strip"><strong>Set up your section</strong><p>Your roster has not been imported into this browser. Go to Soldiers and select Import Roster to restore the hierarchy. This does not happen automatically from the chat.</p><button class="btn primary" data-act="goto" data-id="soldiers">Open Soldiers and Import Roster</button></div>':'')+
   '<div class="metrics">'+metric('Today',todayEvents.length,'Calendar commitments','calendar','schedule')+metric('Today’s Tasks',todayPriorities.length+todayTodos.length,'Priorities and to-dos','tasks','my-actions')+metric('Soldier Actions',soldierActions.length,'Assigned work and requirements','users','soldier-actions')+metric('Active Soldiers',activeSoldiersInCommandOrder().length,'Profiles on this device','users','soldiers')+'</div>'+
@@ -1760,7 +1784,7 @@ function formSave(form,submitter){let f=Object.fromEntries(new FormData(form).en
  const action=submitter?.value==='skip'?'':(f.action||'').trim();
  if(!action&&submitter?.value!=='skip'){notify('Enter an action or choose the other option.');return}
  const saved=state.dailyCheckIn;
- state.dailyCheckIn={date:today,answers:{...(saved?.date===today?saved.answers:{}),[id]:{action}}};
+ state.dailyCheckIn={date:today,answers:{...(saved?.date===today?saved.answers:{}),[id]:{action,todoId:action?addCheckInTodo(action):null}}};
  save();render();
  document.getElementById('daily-check-in-action')?.focus({preventScroll:true});
  return;
@@ -1840,7 +1864,7 @@ async function importRosterFile(file){
  }catch(err){notify(err.message||'Roster import failed')}
 }
 function upsert(k,o){if(!Array.isArray(state[k]))state[k]=[];let i=state[k].findIndex(x=>x.id===o.id);if(i<0)state[k].push(o);else state[k][i]=o}
-document.addEventListener('click',ev=>{let el=ev.target.closest('[data-act]');if(!el)return;let a=el.dataset.act,id=el.dataset.id;if(el.type==='checkbox')return;if(a==='check-in-restart'){delete state.dailyCheckIn;save();render();document.getElementById('daily-check-in-action')?.focus({preventScroll:true})}else if(a==='soldier-work'){expandedSoldierId=expandedSoldierId===id?'':id;render()}else if(a==='goto')route(id);else if(a==='calendar-home'){calendarView='month';selectedCalendarDate='';route('calendar')}else if(a==='calendar')route('calendar');else if(a==='met-summary'){if(id==='library'){open('library','')}else{metFilter=['all','trained','evaluated'].includes(id)?id:'all';render();document.getElementById('met-measure-list')?.scrollIntoView({behavior:'smooth',block:'start'})}}else if(a==='metric-open'){if(id==='soldiers'){route('soldiers')}else{document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'})}}else if(a==='calendar-week'){calendarView='week';render()}else if(a==='calendar-month'){calendarView='month';render()}else if(a==='week-prev'){weekOffset--;selectedCalendarDate='';render()}else if(a==='week-next'){weekOffset++;selectedCalendarDate='';render()}else if(a==='week-now'){weekOffset=0;selectedCalendarDate='';render()}else if(a==='calendar-day'){const d=dateAt(id),current=dateAt(today);const monday=x=>{let a=new Date(x);a.setDate(a.getDate()-((a.getDay()+6)%7));return a};weekOffset=Math.round((monday(d)-monday(current))/604800000);calendarView='week';selectedCalendarDate=id;render();
+document.addEventListener('click',ev=>{let el=ev.target.closest('[data-act]');if(!el)return;let a=el.dataset.act,id=el.dataset.id;if(el.type==='checkbox')return;if(a==='check-in-suggestion'){const suggestion=checkInSuggestions[Number(id)];if(suggestion){addCheckInTodo(suggestion);save();render();notify('Added to Today’s Tasks')}}else if(a==='check-in-restart'){delete state.dailyCheckIn;save();render();document.getElementById('daily-check-in-action')?.focus({preventScroll:true})}else if(a==='soldier-work'){expandedSoldierId=expandedSoldierId===id?'':id;render()}else if(a==='goto')route(id);else if(a==='calendar-home'){calendarView='month';selectedCalendarDate='';route('calendar')}else if(a==='calendar')route('calendar');else if(a==='met-summary'){if(id==='library'){open('library','')}else{metFilter=['all','trained','evaluated'].includes(id)?id:'all';render();document.getElementById('met-measure-list')?.scrollIntoView({behavior:'smooth',block:'start'})}}else if(a==='metric-open'){if(id==='soldiers'){route('soldiers')}else{document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'})}}else if(a==='calendar-week'){calendarView='week';render()}else if(a==='calendar-month'){calendarView='month';render()}else if(a==='week-prev'){weekOffset--;selectedCalendarDate='';render()}else if(a==='week-next'){weekOffset++;selectedCalendarDate='';render()}else if(a==='week-now'){weekOffset=0;selectedCalendarDate='';render()}else if(a==='calendar-day'){const d=dateAt(id),current=dateAt(today);const monday=x=>{let a=new Date(x);a.setDate(a.getDate()-((a.getDay()+6)%7));return a};weekOffset=Math.round((monday(d)-monday(current))/604800000);calendarView='week';selectedCalendarDate=id;render();
  const card=document.getElementById('week-date-'+id);
  if(card){
   card.focus({preventScroll:true});
