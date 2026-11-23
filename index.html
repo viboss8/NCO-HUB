@@ -910,13 +910,32 @@ async function deriveVaultKey(pass,salt){const base=await crypto.subtle.importKe
 async function sealedSnapshot(snapshot,keyToUse,saltToUse){const iv=crypto.getRandomValues(new Uint8Array(12)),cipher=await crypto.subtle.encrypt({name:'AES-GCM',iv},keyToUse,enc.encode(snapshot));return JSON.stringify({version:1,kdf:'PBKDF2-SHA256',iterations:250000,salt:b64(saltToUse),iv:b64(iv),ciphertext:b64(new Uint8Array(cipher))})}
 function validVault(v){return v&&v.version===1&&v.kdf==='PBKDF2-SHA256'&&v.iterations===250000&&typeof v.salt==='string'&&typeof v.iv==='string'&&typeof v.ciphertext==='string'}
 function validTracker(v){return v&&['soldiers','events','requirements','training','missions','tasks','prepPlans','met'].every(k=>Array.isArray(v[k]))}
-async function unlockVault(pass){try{const v=JSON.parse(localStorage.getItem(vaultStorageKey)||'null');if(!validVault(v))throw Error('Invalid vault');const salt=bytesFrom64(v.salt),candidate=await deriveVaultKey(pass,salt);const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytesFrom64(v.iv)},candidate,bytesFrom64(v.ciphertext));const decoded=JSON.parse(dec.decode(pt));if(!validTracker(decoded))throw Error('Invalid tracker data');state=decoded;if(!Array.isArray(state.counselings))state.counselings=[];if(!Array.isArray(state.absences))state.absences=[];if(!Array.isArray(state.todos))state.todos=[];if(!Array.isArray(state.trainingPlans))state.trainingPlans=[];removeEmptyLaunchPlans();vaultKey=candidate;vaultSalt=salt;removeDemoTrainingData();if(normalizeWorkdayDeadlines())save();render();notify('Tracker unlocked');return true}catch(err){notify('Unable to unlock. Check the passphrase or backup.');return false}}
+async function unlockVault(pass){try{const v=JSON.parse(localStorage.getItem(vaultStorageKey)||'null');if(!validVault(v))throw Error('Invalid vault');const salt=bytesFrom64(v.salt),candidate=await deriveVaultKey(pass,salt);const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:bytesFrom64(v.iv)},candidate,bytesFrom64(v.ciphertext));const decoded=JSON.parse(dec.decode(pt));if(!validTracker(decoded))throw Error('Invalid tracker data');state=decoded;if(!Array.isArray(state.counselings))state.counselings=[];if(!Array.isArray(state.absences))state.absences=[];if(!Array.isArray(state.todos))state.todos=[];if(!Array.isArray(state.trainingPlans))state.trainingPlans=[];removeEmptyLaunchPlans();vaultKey=candidate;vaultSalt=salt;removeDemoTrainingData();if([updateCaptainName(),normalizeWorkdayDeadlines()].some(Boolean))save();render();notify('Tracker unlocked');return true}catch(err){notify('Unable to unlock. Check the passphrase or backup.');return false}}
 async function createVault(pass){if(typeof crypto==='undefined'||!crypto.subtle){notify('Secure storage requires HTTPS and browser encryption support.');return}
  if(pass.length<12){notify('Use at least 12 characters for your passphrase.');return}
  if(localStorage.getItem(vaultStorageKey)){notify('A protected tracker already exists. Unlock it instead.');return}
  try{let salt=crypto.getRandomValues(new Uint8Array(16)),candidate=await deriveVaultKey(pass,salt),blob=await sealedSnapshot(JSON.stringify(state),candidate,salt);localStorage.setItem(vaultStorageKey,blob);localStorage.removeItem(key);vaultKey=candidate;vaultSalt=salt;vaultSetupOpen=false;render();notify('Local encryption enabled. Save an encrypted backup.')}catch(err){notify('Encryption setup failed; existing data was preserved.')}}
 function queueEncryptedSave(){const snapshot=JSON.stringify(state),currentKey=vaultKey,salt=vaultSalt;vaultWrite=vaultWrite.catch(()=>{}).then(async()=>{if(!currentKey||!salt)throw Error('Vault locked');localStorage.setItem(vaultStorageKey,await sealedSnapshot(snapshot,currentKey,salt))}).catch(()=>notify('Encrypted save failed. Do not close the page until resolved.'));return vaultWrite}
-function save(){normalizeWorkdayDeadlines();if(vaultKey){queueEncryptedSave();return}if(localStorage.getItem(vaultStorageKey)){notify('Tracker is locked. Unlock before editing.');return}try{localStorage.setItem(key,JSON.stringify(state))}catch{notify('Could not save in this browser')}}
+function updateCaptainName(){
+ const previous=/^(?:(?:CPT|CAPT|Captain)\.?\s+)?Gist$/i;
+ let changed=false;
+ for(const soldier of state.soldiers){
+  const captain=/^(CPT|CAPT|Captain)$/i.test(soldier.rank||'')||/^(CPT|CAPT|Captain)\.?\s+/i.test(soldier.name||'');
+  if(!captain||!(previous.test(soldier.name?.trim())||previous.test(soldier.lastName?.trim())))continue;
+  soldier.name='CPT Skaggs';
+  soldier.lastName='Skaggs';
+  changed=true;
+ }
+ for(const [records,field] of [[state.training,'instructor'],[state.trainingPlans||[],'lead']]){
+  for(const record of records){
+   if(!/^(CPT|CAPT|Captain)\.?\s+Gist$/i.test(record[field]?.trim()))continue;
+   record[field]='CPT Skaggs';
+   changed=true;
+  }
+ }
+ return changed;
+}
+function save(){updateCaptainName();normalizeWorkdayDeadlines();if(vaultKey){queueEncryptedSave();return}if(localStorage.getItem(vaultStorageKey)){notify('Tracker is locked. Unlock before editing.');return}try{localStorage.setItem(key,JSON.stringify(state))}catch{notify('Could not save in this browser')}}
 async function lockVault(){await vaultWrite;vaultKey=null;vaultSalt=null;state=initial();drawer=null;render()}
 async function downloadVault(){if(!vaultKey)return notify('Unlock the tracker first.');await vaultWrite;const data=localStorage.getItem(vaultStorageKey);if(!data)return notify('No encrypted backup found.');const blob=new Blob([data],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='nco-mission-control-encrypted-backup-'+today+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000)}
 async function restoreVaultFile(file){if(!file)return;try{const data=await file.text(),v=JSON.parse(data);if(!validVault(v))throw Error('Invalid encrypted backup');if(!confirm('Replace the current tracker with this encrypted backup? Your current local entries will be overwritten.'))return;await vaultWrite;localStorage.setItem(vaultStorageKey,data);localStorage.removeItem(key);vaultKey=null;vaultSalt=null;state=initial();drawer=null;render();notify('Backup imported. Enter its passphrase to unlock.')}catch(err){notify('Backup is not a supported encrypted NCO tracker file.')}}
@@ -1899,7 +1918,7 @@ if(ev.target.id==='eight-form'){ev.preventDefault();const form=ev.target,p=eight
 document.addEventListener('change',ev=>{if(ev.target.id==='vault-file'){restoreVaultFile(ev.target.files?.[0]);}if(ev.target.id==='roster-file'){importRosterFile(ev.target.files?.[0]);}});
 document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&drawer){discardTransientEight();drawer=null;render()}});
 document.addEventListener('click',ev=>{if(ev.target.id==='overlay'){discardTransientEight();drawer=null;render()}});
-if(!localStorage.getItem(vaultStorageKey)){removeDemoTrainingData();if(normalizeWorkdayDeadlines())save();}
+if(!localStorage.getItem(vaultStorageKey)){removeDemoTrainingData();if([updateCaptainName(),normalizeWorkdayDeadlines()].some(Boolean))save();}
 render();
 </script>
 </body>
