@@ -1051,16 +1051,17 @@ function syncCheckInTodos(){
  for(const answer of pending)answer.todoId=addCheckInTodo(answer.action);
  if(pending.length)save();
 }
-function dailyCheckIn(hasOpenTasks){
+function dailyCheckIn(){
  const answers=state.dailyCheckIn?.date===today?state.dailyCheckIn.answers:{};
  const steps=answers.soldiers?.action?['soldiers','support','own','readiness']:['soldiers','own','readiness'];
  const step=steps.find(key=>!answers[key]);
  const heading='<section class="daily-checkin" aria-labelledby="daily-checkin-title"><h2 id="daily-checkin-title">Today’s Check-In</h2>';
  if(!step){
-  const suggestions=!hasOpenTasks&&!steps.some(key=>answers[key].action)?
-   '<div class="daily-suggestion"><strong>Suggested next actions</strong>'+checkInSuggestions.map((suggestion,index)=>
-    '<div class="list-row"><span class="row-main">'+e(suggestion)+'</span><button class="btn tiny" data-act="check-in-suggestion" data-id="'+index+'" aria-label="Add to Today’s Tasks: '+e(suggestion)+'">Add to today</button></div>'
-   ).join('')+'</div>':'';
+  const suggestions=!steps.some(key=>answers[key].action)?
+   '<div class="daily-suggestion"><strong>Suggested next actions</strong>'+checkInSuggestions.map((suggestion,index)=>{
+    const added=(state.todos||[]).some(item=>item.due===today&&item.title.trim().toLowerCase()===suggestion.toLowerCase());
+    return '<div class="list-row"><span class="row-main">'+e(suggestion)+'</span><button class="btn tiny" data-act="check-in-suggestion" data-id="'+index+'" aria-label="Add to Today’s Tasks: '+e(suggestion)+'" '+(added?'disabled':'')+'>'+(added?'Added':'Add to today')+'</button></div>';
+   }).join('')+'</div>':'';
   return heading+'<dl>'+steps.map(key=>'<dt>'+checkInQuestions[key][0]+'</dt><dd>'+e(answers[key].action||checkInQuestions[key][2])+'</dd>').join('')+
    '</dl>'+suggestions+'<button class="btn tiny" data-act="check-in-restart">Start check-in over</button></section>';
  }
@@ -1103,7 +1104,7 @@ function home(){
  const todayCards=todayEvents.map(ev=>'<div class="row-event"><div class="time">'+e(ev.time||'')+'</div><div class="vertical"></div><div class="row-main"><strong>'+e(ev.title)+'</strong><span>'+e(ev.type)+(ev.soldierIds?.length?' • '+ev.soldierIds.map(who).join(', '):'')+'</span></div><button class="text-button" data-act="event-detail" data-id="'+e(ev.id)+'">Open ›</button></div>').join('');
  return heading('DAILY LEADERSHIP VIEW','Mission Control','Start with your Soldiers’ priorities, then your own. When both are clear, use the open time to build readiness.',
   '<div class="action-row"><button class="btn primary" data-act="quick-add">+ Add Item</button></div>')+
-  dailyCheckIn(todayPriorities.length+todayTodos.length>0)+
+  dailyCheckIn()+
   '<div class="banner">Browser-local workspace. Do not enter identifiable personnel schedules or sensitive duty information until approved for this environment.</div>'+
   (!state.soldiers.some(s=>s.active!==false)?'<div class="setup-strip"><strong>Set up your section</strong><p>Your roster has not been imported into this browser. Go to Soldiers and select Import Roster to restore the hierarchy. This does not happen automatically from the chat.</p><button class="btn primary" data-act="goto" data-id="soldiers">Open Soldiers and Import Roster</button></div>':'')+
   '<div class="metrics">'+metric('Today',todayEvents.length,'Calendar commitments','calendar','schedule')+metric('Today’s Tasks',todayPriorities.length+todayTodos.length,'Priorities and to-dos','tasks','my-actions')+metric('Soldier Actions',soldierActions.length,'Assigned work and requirements','users','soldier-actions')+metric('Active Soldiers',activeSoldiersInCommandOrder().length,'Profiles on this device','users','soldiers')+'</div>'+
