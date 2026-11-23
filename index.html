@@ -955,6 +955,8 @@ function route(name){discardTransientEight();view=name;filter='';tab='all';drawe
 function notify(msg){document.querySelector('.toast')?.remove();let n=document.createElement('div');n.className='toast';n.setAttribute('role','status');n.textContent=msg;document.body.append(n);clearTimeout(toastTimer);toastTimer=setTimeout(()=>n.remove(),2800)}
 function heading(label,title,desc,action=''){return `<div class="heading"><div><div class="eyebrow">${label}</div><h1>${title}</h1><p>${desc}</p></div>${action}</div>`}
 const careerDates=[
+ ['tisStart','BASD (Regular Army) / PEBD (Reserve) for TIS'],
+ ['currentDor','Current rank date of rank'],
  ['secondary','Projected secondary-zone board minimums'],
  ['primary','Projected primary-zone board minimums'],
  ['board','Confirmed board date'],
@@ -967,12 +969,31 @@ const careerDates=[
  ['pme','PME completion date'],
  ['careerReview','Career or assignment review due']
 ];
+function addMonths(date,months){
+ if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date||''))return '';
+ const [year,month,day]=date.split('-').map(Number),targetMonth=month-1+months;
+ const targetYear=year+Math.floor(targetMonth/12),normalizedMonth=((targetMonth%12)+12)%12;
+ const lastDay=new Date(Date.UTC(targetYear,normalizedMonth+1,0)).getUTCDate();
+ return dateKey(new Date(targetYear,normalizedMonth,Math.min(day,lastDay),12));
+}
+function juniorPromotionForecast(soldier){
+ const rank=String(soldier.rank||'').toUpperCase();
+ const rule=rank==='PV2'?{next:'PFC',tis:12,tig:4}:rank==='PFC'?{next:'SPC',tis:24,tig:6}:null;
+ const dates=soldier.careerDates||{};
+ if(!rule||!dates.tisStart||!dates.currentDor)return null;
+ const tisDate=addMonths(dates.tisStart,rule.tis),tigDate=addMonths(dates.currentDor,rule.tig);
+ if(!tisDate||!tigDate)return null;
+ return {next:rule.next,date:tisDate>tigDate?tisDate:tigDate};
+}
 function careerPanel(soldier){
  const dates=soldier.careerDates||{};
+ const forecast=juniorPromotionForecast(soldier);
  const rows=careerDates.filter(([key])=>dates[key]).map(([key,label])=>
   '<div class="detail-line"><span>'+label+'</span><strong>'+fmt(dates[key],{month:'short',day:'numeric',year:'numeric'})+'</strong></div>').join('');
  return '<details class="accordion" open><summary>Promotion &amp; Development</summary><div>'+
-  (rows||'<p>No milestones recorded.</p>')+
+  (forecast?'<div class="detail-line"><span>Projected minimum for automatic '+forecast.next+' eligibility</span><strong>'+fmt(forecast.date,{month:'short',day:'numeric',year:'numeric'})+'</strong></div>':'')+
+  (rows||(!forecast?'<p>No milestones recorded.</p>':''))+
+  (forecast?'<p class="small-meta">Time-based estimate only, based on the recorded TIS start date and current date of rank. Confirm qualification, approval, and official date with S1/IPPS-A. <a href="https://www.moguard.ngb.mil/Portals/48/Documents/EPS/EPS%20Webpage%20Documents/AR%20600-8-19.pdf" target="_blank" rel="noopener">AR 600-8-19, para. 2-2</a>.</p>':'')+
   '<div class="action-row"><button class="btn tiny" data-act="career-edit" data-id="'+e(soldier.id)+'">Edit milestones</button>'+
   '<button class="btn tiny" data-act="new-task" data-id="'+e(soldier.id)+'">Add follow-up</button></div></div></details>';
 }
@@ -1782,7 +1803,7 @@ else if(kind==='career'){
  if(!soldier)return '';
  title='Promotion & Development';
  body='<form id="entity-form" data-kind="career" data-id="'+e(id)+'">'+
-  '<p class="small-meta">Enter milestone dates only. Verify projected dates and confirmed actions with S1.</p>'+
+  '<p class="small-meta">Enter dates from an authorized record. Junior-enlisted automatic advancement estimates use BASD for Regular Army or PEBD for Reserve, plus the current rank date of rank. Verify projected dates and confirmed actions with S1/IPPS-A.</p>'+
   careerDates.map(([key,label])=>input(label,key,soldier.careerDates?.[key]||'','date',false)).join('')+
   formButtons()+'</form>';
 }
