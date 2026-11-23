@@ -766,9 +766,13 @@ body:has(.soldiers-workspace) .main .content{padding-bottom:90px}
 .page-home .btn.primary,.page-tasks .btn.primary{background:#38644b;border-color:#38644b;color:white}
 .page-home .btn.primary:hover,.page-tasks .btn.primary:hover{background:#285038}
 .page-home .readiness-alert-icon,.page-home .training-warning-mark,.page-tasks .readiness-alert-icon{background:#b52222;color:white}
-.page-home .daily-checkin{display:grid;grid-template-columns:1fr 1fr 1fr 1.25fr;gap:10px;align-items:center;padding:13px 16px;margin:0 0 14px;background:#eaf0e3;border:1px solid #c2d0b4;border-radius:12px;color:#304c37}
-.page-home .daily-checkin strong{font-size:13px}
-.page-home .daily-checkin span{font-size:12px;line-height:1.35}
+.page-home .daily-checkin{padding:16px;margin:0 0 14px;background:#eaf0e3;border:1px solid #c2d0b4;border-radius:12px;color:#304c37}
+.page-home .daily-checkin h2{font-size:16px;margin:0 0 10px}
+.page-home .daily-checkin label{font-size:14px}
+.page-home .daily-checkin .action-row{margin-top:10px}
+.page-home .daily-checkin dd{margin:4px 0 10px;overflow-wrap:anywhere;white-space:pre-wrap}
+.page-home .daily-checkin dt{font-weight:700}
+.page-home .daily-checkin textarea{min-height:58px}
 .page-home .daily-todo-heading{margin-top:18px}
 .page-home .daily-priority-row .chip{flex-shrink:0}
 .page-home .daily-suggestion{display:grid;gap:5px;margin:5px 0 10px;padding:12px;border:1px solid #c9d5bd;border-radius:10px;background:#f2f6ed;color:#294533}
@@ -788,8 +792,8 @@ body:has(.soldiers-workspace) .main .content{padding-bottom:90px}
 .page-home .soldier-work-suggestion span{font-size:12px;line-height:1.45;margin-top:4px}
 .page-home .soldier-work-suggestion .action-row{margin-top:10px}
 
-@media(max-width:760px){.page-home .daily-checkin{grid-template-columns:1fr 1fr}.page-home .daily-priority-row{flex-wrap:wrap}}
-@media(max-width:460px){.page-home .daily-checkin{grid-template-columns:1fr}.page-home .soldier-status-heading,.page-home .soldier-status-row{grid-template-columns:minmax(75px,.7fr) minmax(0,1.5fr) 32px;gap:7px;padding:10px 8px}.page-home .soldier-work-suggestion{margin-left:8px;margin-right:8px}}
+@media(max-width:760px){.page-home .daily-priority-row{flex-wrap:wrap}}
+@media(max-width:460px){.page-home .soldier-status-heading,.page-home .soldier-status-row{grid-template-columns:minmax(75px,.7fr) minmax(0,1.5fr) 32px;gap:7px;padding:10px 8px}.page-home .soldier-work-suggestion{margin-left:8px;margin-right:8px}}
 @media(max-width:760px){
  .page-home .heading,.page-tasks .heading,.page-met .heading{padding:15px}
  .page-home .metric,.page-met .metric{padding:12px}
@@ -1022,6 +1026,29 @@ function dailyPriority(due){
  if(due<=addDay(3))return {label:'Coming up',rank:2};
  return {label:'Upcoming',rank:3};
 }
+const checkInQuestions={
+ soldiers:['What do my Soldiers need to complete today?','Name the Soldier and the outcome you need.','Nothing assigned today'],
+ support:['What can I do to help them complete it?','Give direction, clarify the outcome, or remove a blocker.','They have what they need'],
+ own:['What do I need to do today?','Pick the task you need to get done.','No tasks today'],
+ readiness:['How can I make today productive and improve readiness?','Choose one action that moves training or readiness forward.','No additional action today']
+};
+function dailyCheckIn(){
+ const answers=state.dailyCheckIn?.date===today?state.dailyCheckIn.answers:{};
+ const steps=answers.soldiers?.action?['soldiers','support','own','readiness']:['soldiers','own','readiness'];
+ const step=steps.find(key=>!answers[key]);
+ const heading='<section class="daily-checkin" aria-labelledby="daily-checkin-title"><h2 id="daily-checkin-title">Today’s Check-In</h2>';
+ if(!step){
+  return heading+'<dl>'+steps.map(key=>'<dt>'+checkInQuestions[key][0]+'</dt><dd>'+e(answers[key].action||checkInQuestions[key][2])+'</dd>').join('')+
+   '</dl><button class="btn tiny" data-act="check-in-restart">Start check-in over</button></section>';
+ }
+ const [question,hint,skip]=checkInQuestions[step];
+ const reference=step==='soldiers'?['soldier-actions','See Soldier status']:step==='own'?['my-actions','See Today’s Tasks']:null;
+ return heading+'<form id="entity-form" data-kind="daily-check-in" data-id="'+step+'"><div class="field">'+
+  '<label for="daily-check-in-action">'+question+'</label><textarea id="daily-check-in-action" name="action" maxlength="400" placeholder="'+e(hint)+'"></textarea></div>'+
+  '<div class="action-row"><button class="btn primary" type="submit" name="decision" value="action">Save and continue</button>'+
+  '<button class="btn" type="submit" name="decision" value="skip">'+skip+'</button></div></form>'+
+  (reference?'<button class="text-button" data-act="metric-open" data-id="'+reference[0]+'">'+reference[1]+'</button>':'')+'</section>';
+}
 function home(){
  const abs=absenceSummary(),outNow=abs.filter(x=>x.date<=today&&x.endDate>=today);
  const absCards=abs.slice(0,5).map(x=>'<div class="list-row"><div class="row-main"><strong>'+e(who(x.soldierId))+' • '+e(x.type)+'</strong><span>'+fmt(x.date)+' to '+fmt(x.endDate)+(x.date<=today&&x.endDate>=today?' • Out now':'')+'</span></div><button class="text-button" data-act="absence-detail" data-id="'+e(x.id)+'">Edit ›</button></div>').join('');
@@ -1052,7 +1079,7 @@ function home(){
  const todayCards=todayEvents.map(ev=>'<div class="row-event"><div class="time">'+e(ev.time||'')+'</div><div class="vertical"></div><div class="row-main"><strong>'+e(ev.title)+'</strong><span>'+e(ev.type)+(ev.soldierIds?.length?' • '+ev.soldierIds.map(who).join(', '):'')+'</span></div><button class="text-button" data-act="event-detail" data-id="'+e(ev.id)+'">Open ›</button></div>').join('');
  return heading('DAILY LEADERSHIP VIEW','Mission Control','Start with your Soldiers’ priorities, then your own. When both are clear, use the open time to build readiness.',
   '<div class="action-row"><button class="btn primary" data-act="quick-add">+ Add Item</button></div>')+
-  '<div class="daily-checkin"><strong>Today’s check-in</strong><span>1. What do my Soldiers need to complete?</span><span>2. What do I need to do or provide?</span><span>3. If we have room, what will improve readiness?</span></div>'+
+  dailyCheckIn()+
   '<div class="banner">Browser-local workspace. Do not enter identifiable personnel schedules or sensitive duty information until approved for this environment.</div>'+
   (!state.soldiers.some(s=>s.active!==false)?'<div class="setup-strip"><strong>Set up your section</strong><p>Your roster has not been imported into this browser. Go to Soldiers and select Import Roster to restore the hierarchy. This does not happen automatically from the chat.</p><button class="btn primary" data-act="goto" data-id="soldiers">Open Soldiers and Import Roster</button></div>':'')+
   '<div class="metrics">'+metric('Today',todayEvents.length,'Calendar commitments','calendar','schedule')+metric('Today’s Tasks',todayPriorities.length+todayTodos.length,'Priorities and to-dos','tasks','my-actions')+metric('Soldier Actions',soldierActions.length,'Assigned work and requirements','users','soldier-actions')+metric('Active Soldiers',activeSoldiersInCommandOrder().length,'Profiles on this device','users','soldiers')+'</div>'+
@@ -1729,7 +1756,15 @@ else if(kind==='library'){title='Supporting task library';body=`<div class="noti
 return `<div class="detail-overlay" id="overlay"><aside class="drawer" role="dialog" aria-modal="true" aria-label="${e(title)}"><div class="drawer-head"><h2>${e(title)}</h2><button class="close" data-act="close" aria-label="Close">×</button></div>${body}</aside></div>`}
 function open(kind,id){drawer=[kind,id||''];render();document.querySelector('.drawer')?.focus()}
 function idNew(){return 'demo-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,6)}
-function formSave(form){let f=Object.fromEntries(new FormData(form).entries()),kind=form.dataset.kind,id=form.dataset.id; if(kind==='career'){
+function formSave(form,submitter){let f=Object.fromEntries(new FormData(form).entries()),kind=form.dataset.kind,id=form.dataset.id; if(kind==='daily-check-in'){
+ const action=submitter?.value==='skip'?'':(f.action||'').trim();
+ if(!action&&submitter?.value!=='skip'){notify('Enter an action or choose the other option.');return}
+ const saved=state.dailyCheckIn;
+ state.dailyCheckIn={date:today,answers:{...(saved?.date===today?saved.answers:{}),[id]:{action}}};
+ save();render();
+ document.getElementById('daily-check-in-action')?.focus({preventScroll:true});
+ return;
+ }else if(kind==='career'){
  const soldier=sol(id);
  if(!soldier)return;
  soldier.careerDates=Object.fromEntries(careerDates.filter(([key])=>f[key]).map(([key])=>[key,f[key]]));
@@ -1805,7 +1840,7 @@ async function importRosterFile(file){
  }catch(err){notify(err.message||'Roster import failed')}
 }
 function upsert(k,o){if(!Array.isArray(state[k]))state[k]=[];let i=state[k].findIndex(x=>x.id===o.id);if(i<0)state[k].push(o);else state[k][i]=o}
-document.addEventListener('click',ev=>{let el=ev.target.closest('[data-act]');if(!el)return;let a=el.dataset.act,id=el.dataset.id;if(el.type==='checkbox')return;if(a==='soldier-work'){expandedSoldierId=expandedSoldierId===id?'':id;render()}else if(a==='goto')route(id);else if(a==='calendar-home'){calendarView='month';selectedCalendarDate='';route('calendar')}else if(a==='calendar')route('calendar');else if(a==='met-summary'){if(id==='library'){open('library','')}else{metFilter=['all','trained','evaluated'].includes(id)?id:'all';render();document.getElementById('met-measure-list')?.scrollIntoView({behavior:'smooth',block:'start'})}}else if(a==='metric-open'){if(id==='soldiers'){route('soldiers')}else{document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'})}}else if(a==='calendar-week'){calendarView='week';render()}else if(a==='calendar-month'){calendarView='month';render()}else if(a==='week-prev'){weekOffset--;selectedCalendarDate='';render()}else if(a==='week-next'){weekOffset++;selectedCalendarDate='';render()}else if(a==='week-now'){weekOffset=0;selectedCalendarDate='';render()}else if(a==='calendar-day'){const d=dateAt(id),current=dateAt(today);const monday=x=>{let a=new Date(x);a.setDate(a.getDate()-((a.getDay()+6)%7));return a};weekOffset=Math.round((monday(d)-monday(current))/604800000);calendarView='week';selectedCalendarDate=id;render();
+document.addEventListener('click',ev=>{let el=ev.target.closest('[data-act]');if(!el)return;let a=el.dataset.act,id=el.dataset.id;if(el.type==='checkbox')return;if(a==='check-in-restart'){delete state.dailyCheckIn;save();render();document.getElementById('daily-check-in-action')?.focus({preventScroll:true})}else if(a==='soldier-work'){expandedSoldierId=expandedSoldierId===id?'':id;render()}else if(a==='goto')route(id);else if(a==='calendar-home'){calendarView='month';selectedCalendarDate='';route('calendar')}else if(a==='calendar')route('calendar');else if(a==='met-summary'){if(id==='library'){open('library','')}else{metFilter=['all','trained','evaluated'].includes(id)?id:'all';render();document.getElementById('met-measure-list')?.scrollIntoView({behavior:'smooth',block:'start'})}}else if(a==='metric-open'){if(id==='soldiers'){route('soldiers')}else{document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'})}}else if(a==='calendar-week'){calendarView='week';render()}else if(a==='calendar-month'){calendarView='month';render()}else if(a==='week-prev'){weekOffset--;selectedCalendarDate='';render()}else if(a==='week-next'){weekOffset++;selectedCalendarDate='';render()}else if(a==='week-now'){weekOffset=0;selectedCalendarDate='';render()}else if(a==='calendar-day'){const d=dateAt(id),current=dateAt(today);const monday=x=>{let a=new Date(x);a.setDate(a.getDate()-((a.getDay()+6)%7));return a};weekOffset=Math.round((monday(d)-monday(current))/604800000);calendarView='week';selectedCalendarDate=id;render();
  const card=document.getElementById('week-date-'+id);
  if(card){
   card.focus({preventScroll:true});
@@ -1835,7 +1870,7 @@ document.addEventListener('submit',ev=>{if(ev.target.id==='vault-setup-form'){ev
 }
 else if(wizardStep===2){prepDraft.hasPrep=f.hasPrep;if(f.hasPrep==='no'){state.prepPlans.push({id:idNew(),...prepDraft,items:[]});save();drawer=null;render();notify('Event saved without prerequisites');}else{wizardStep=3;render();}}
 else{let items=Array.from({length:wizardRows},(_,i)=>{let mode=f['itemmode'+i]||'3',title=(f['itemtitle'+i]||'').trim(),due=prepDeadline(prepDraft.date,mode,f['itemdue'+i]||'');return {id:idNew(),title,mode,due,owner:f['itemowner'+i]||'NCO',done:false}}).filter(x=>x.title);if(!items.length){notify('Enter at least one prerequisite.');return;}if(items.some(x=>!x.due||x.due>prepDraft.date)){notify('Every requirement needs a deadline no later than the event.');return;}state.prepPlans.push({id:idNew(),...prepDraft,items});save();drawer=null;render();notify('Event and preparation checklist saved');}return;}
-if(ev.target.id==='eight-form'){ev.preventDefault();const form=ev.target,p=eightPlan(form.dataset.id),stage=Number(form.dataset.stage),action=ev.submitter?.value||'next';if(!p)return;if(!eightSaveStep(form,p,stage))return;if(action==='draft'){persistEightDraft(p);drawer=null;render();notify('Draft saved. No calendar event created.');return}if(action==='approve'){if(eightApprove(p)){drawer=['eight-plan',p.id];render();notify('Training plan approved in tracker. Linked event and preparation tasks created.')}return}eightStepScreen=Math.min(4,stage+1);render();return}if(ev.target.id==='entity-form'){ev.preventDefault();formSave(ev.target)}});
+if(ev.target.id==='eight-form'){ev.preventDefault();const form=ev.target,p=eightPlan(form.dataset.id),stage=Number(form.dataset.stage),action=ev.submitter?.value||'next';if(!p)return;if(!eightSaveStep(form,p,stage))return;if(action==='draft'){persistEightDraft(p);drawer=null;render();notify('Draft saved. No calendar event created.');return}if(action==='approve'){if(eightApprove(p)){drawer=['eight-plan',p.id];render();notify('Training plan approved in tracker. Linked event and preparation tasks created.')}return}eightStepScreen=Math.min(4,stage+1);render();return}if(ev.target.id==='entity-form'){ev.preventDefault();formSave(ev.target,ev.submitter)}});
 document.addEventListener('change',ev=>{if(ev.target.id==='vault-file'){restoreVaultFile(ev.target.files?.[0]);}if(ev.target.id==='roster-file'){importRosterFile(ev.target.files?.[0]);}});
 document.addEventListener('keydown',ev=>{if(ev.key==='Escape'&&drawer){discardTransientEight();drawer=null;render()}});
 document.addEventListener('click',ev=>{if(ev.target.id==='overlay'){discardTransientEight();drawer=null;render()}});
